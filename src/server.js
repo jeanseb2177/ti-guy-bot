@@ -167,7 +167,7 @@ app.post('/api/scripts/:id/publier', auth, (req, res) => {
 });
 
 function startServer() {
-    const PORT = process.env.PORT || 3000;
+    const PORT = process.env.PORT || 8080;
     app.listen(PORT, () => {
         console.log(`[SERVER] Ti-Guy Bot dashboard: http://localhost:${PORT}`);
     });
