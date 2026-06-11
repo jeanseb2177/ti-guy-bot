@@ -204,7 +204,7 @@ app.get('/api/scripts/:id/audio', auth, (req, res) => {
 
 function startServer() {
     const PORT = process.env.PORT || 3000;
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
         console.log(`[SERVER] Ti-Guy Bot v2.0 dashboard: http://localhost:${PORT}`);
     });
 }
