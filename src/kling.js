@@ -17,10 +17,14 @@ const FONDS_OUTDOOR = {
 };
 
 function getAuthHeaders() {
-    // Kling utilise Basic Auth avec Access Key + Secret Key
-    const credentials = Buffer.from(`${KLING_ACCESS_KEY}:${KLING_SECRET_KEY}`).toString('base64');
+    const jwt = require('jsonwebtoken');
+    const token = jwt.sign(
+        { iss: KLING_ACCESS_KEY, exp: Math.floor(Date.now() / 1000) + 1800 },
+        KLING_SECRET_KEY,
+        { algorithm: 'HS256', header: { alg: 'HS256', typ: 'JWT' } }
+    );
     return {
-        'Authorization': `Basic ${credentials}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
     };
 }
