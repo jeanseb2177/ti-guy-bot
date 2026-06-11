@@ -23,7 +23,7 @@ async function createVideo(script, titre) {
                     voice: {
                         type: 'text',
                         input_text: script,
-                        voice_id: 'fr-FR-HenriNeural',
+                        voice_id: HEYGEN_VOICE_ID,
                         speed: 1.0
                     }
                 }],
