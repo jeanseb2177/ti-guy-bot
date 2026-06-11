@@ -7,7 +7,10 @@ console.log('🏕️  TI-GUY BOT — Mon Camp de Base');
 console.log('================================');
 console.log(`Saison: ${getSaison()}`);
 console.log(`Timezone: ${process.env.TZ || 'Europe/Paris'}`);
-console.log(`HeyGen: ${process.env.HEYGEN_API_KEY ? '✅ Configure' : '⚠️  Non configure (mode script seulement)'}`);
+console.log(`ANTHROPIC_API_KEY: ${process.env.ANTHROPIC_API_KEY ? '✅' : '❌'}`);
+console.log(`HEYGEN_API_KEY: ${process.env.HEYGEN_API_KEY ? '✅ Configure' : '⚠️  Non configure'}`);
+console.log(`HEYGEN_AVATAR_ID: ${process.env.HEYGEN_AVATAR_ID ? '✅' : '❌'}`);
+console.log(`HEYGEN_VOICE_ID: ${process.env.HEYGEN_VOICE_ID ? '✅' : '❌'}`);
 console.log('');
 
 startServer();
