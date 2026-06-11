@@ -126,9 +126,13 @@ Format de réponse:
 }
 
 function parseScript(text, type, sujet) {
-    const titre = extractSection(text, 'TITRE');
-    const script = extractSection(text, 'SCRIPT');
-    const hashtags = extractSection(text, 'HASHTAGS');
+    const titre = extractSection(text, 'TITRE') || extractSection(text, 'TITLE') || sujet.substring(0, 50);
+    const script = extractSection(text, 'SCRIPT') || text;
+    const hashtags = extractSection(text, 'HASHTAGS') || 'camping randonnee plein air outdoor france';
+    
+    console.log('[PARSE] Titre trouve:', titre ? 'OUI' : 'NON');
+    console.log('[PARSE] Script trouve:', script ? 'OUI' : 'NON');
+    console.log('[PARSE] Texte brut debut:', text.substring(0, 100));
     
     return {
         id: Date.now().toString(),
@@ -136,7 +140,7 @@ function parseScript(text, type, sujet) {
         sujet,
         titre: titre || 'Ti-Guy — Mon Camp de Base',
         script: script || text,
-        hashtags: hashtags || 'camping randonnee plein air outdoor france',
+        hashtags: hashtags,
         saison: getSaison(),
         date_creation: new Date().toISOString(),
         statut: 'en_attente',
