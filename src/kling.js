@@ -18,8 +18,13 @@ const FONDS_OUTDOOR = {
 
 function getAuthHeaders() {
     const jwt = require('jsonwebtoken');
+    const now = Math.floor(Date.now() / 1000);
     const token = jwt.sign(
-        { iss: KLING_ACCESS_KEY, exp: Math.floor(Date.now() / 1000) + 1800 },
+        {
+            iss: KLING_ACCESS_KEY,
+            exp: now + 1800,
+            nbf: now - 5
+        },
         KLING_SECRET_KEY,
         { algorithm: 'HS256', header: { alg: 'HS256', typ: 'JWT' } }
     );
@@ -28,7 +33,6 @@ function getAuthHeaders() {
         'Content-Type': 'application/json'
     };
 }
-
 function detectFond(script) {
     const s = script.toLowerCase();
     if (s.includes('pluie') || s.includes('imperméable') || s.includes('poncho')) return 'pluie';
