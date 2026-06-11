@@ -57,7 +57,7 @@ async function genererAvecPipeline(script) {
         // Etape 2: Generer video avec Kling
         console.log('[PIPELINE] Etape 2: Generation video Kling...');
         const AVATAR_URL = 'https://raw.githubusercontent.com/jeanseb2177/ti-guy-bot/main/assets/tiguy_avatar.jpg';
-        const kling = await klingGenerateVideo(script.script, AVATAR_URL);
+        const kling = await klingGenerateVideo(script.script);
         updateScript(script.id, { kling_task_id: kling.task_id, statut: 'video_en_cours' });
 
         console.log('[PIPELINE] Pipeline lance avec succes!');
