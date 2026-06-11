@@ -4,7 +4,7 @@
   "description": "Ti-Guy Desbois — Bot de contenu pour Mon Camp de Base",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node --max-old-space-size=512 src/index.js",
     "dev": "node src/index.js"
   },
   "dependencies": {
