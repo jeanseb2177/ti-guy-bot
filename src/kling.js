@@ -4,17 +4,19 @@ const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY || 'A4Y4mDPkyrQCffHPGkeepn
 const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY || 'NrLQd8Qdgf9DDkmEbJ3YTet8K4KfhKNH';
 const KLING_BASE_URL = 'https://api.klingai.com';
 
-// URL avatar Ti-Guy — image de face sur fond blanc
-const TIGUY_AVATAR_URL = 'https://raw.githubusercontent.com/jeanseb2177/ti-guy-bot/main/assets/tiguy_face.png';
+// Images Ti-Guy — poses differentes selon situation
+const TIGUY_AVATAR_3QUART = 'https://i.imgur.com/bFOdwNy.png'; // 3/4
+const TIGUY_AVATAR_COTE   = 'https://i.imgur.com/bstQEF9.png'; // cote
+const TIGUY_AVATAR_FACE   = 'https://i.imgur.com/A175fTf.png'; // face
 
 const FONDS_OUTDOOR = {
-    pluie: 'https://images.unsplash.com/photo-1501691223387-dd0500403074?w=1080',
-    montagne: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1080',
-    foret: 'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1080',
-    camping: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1080',
+    pluie:     'https://images.unsplash.com/photo-1501691223387-dd0500403074?w=1080',
+    montagne:  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1080',
+    foret:     'https://images.unsplash.com/photo-1448375240586-882707db888b?w=1080',
+    camping:   'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1080',
     randonnee: 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=1080',
-    lac: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1080',
-    default: 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1080'
+    lac:       'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1080',
+    default:   'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=1080'
 };
 
 function getAuthHeaders() {
@@ -38,22 +40,28 @@ function detectFond(script) {
     return 'camping';
 }
 
+function choisirAvatar(fond) {
+    if (fond === 'randonnee' || fond === 'montagne') return TIGUY_AVATAR_3QUART;
+    if (fond === 'pluie' || fond === 'foret') return TIGUY_AVATAR_COTE;
+    return TIGUY_AVATAR_FACE;
+}
+
 async function generateVideo(script) {
     try {
         const fond = detectFond(script);
-        const fondUrl = FONDS_OUTDOOR[fond] || FONDS_OUTDOOR.default;
+        const avatarUrl = choisirAvatar(fond);
 
         const scriptPropre = script
             .replace(/\*[^*]+\*/g, '')
             .replace(/\([^)]+\)/g, '')
             .trim();
 
-        console.log(`[KLING] Generation video - fond: ${fond}`);
+        console.log(`[KLING] Generation video - fond: ${fond} - avatar: ${avatarUrl}`);
         console.log(`[KLING] Script propre: ${scriptPropre.substring(0, 80)}...`);
 
         const payload = {
             model_name: 'kling-v1-6',
-            image_url: TIGUY_AVATAR_URL,
+            image_url: avatarUrl,
             prompt: `Ti-Guy Desbois, French outdoor guide, speaking directly to camera, ${fond} outdoor background, natural movement, Pixar 3D cartoon style, friendly expression`,
             negative_prompt: 'blurry, distorted, unnatural movement',
             cfg_scale: 0.5,
