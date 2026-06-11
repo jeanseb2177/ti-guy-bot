@@ -126,21 +126,17 @@ Format de réponse:
 }
 
 function parseScript(text, type, sujet) {
-    const titre = extractSection(text, 'TITRE') || extractSection(text, 'TITLE') || sujet.substring(0, 50);
-    const script = extractSection(text, 'SCRIPT') || text;
-    const hashtags = extractSection(text, 'HASHTAGS') || 'camping randonnee plein air outdoor france';
-    
-    console.log('[PARSE] Titre trouve:', titre ? 'OUI' : 'NON');
-    console.log('[PARSE] Script trouve:', script ? 'OUI' : 'NON');
-    console.log('[PARSE] Texte brut debut:', text.substring(0, 100));
+    const titre = extractSection(text, 'TITRE');
+    const script = extractSection(text, 'SCRIPT');
+    const hashtags = extractSection(text, 'HASHTAGS');
     
     return {
         id: Date.now().toString(),
         type,
-        sujet,
+        sujet: sujet || 'aleatoire',
         titre: titre || 'Ti-Guy — Mon Camp de Base',
         script: script || text,
-        hashtags: hashtags,
+        hashtags: hashtags || 'camping randonnee plein air outdoor france',
         saison: getSaison(),
         date_creation: new Date().toISOString(),
         statut: 'en_attente',
