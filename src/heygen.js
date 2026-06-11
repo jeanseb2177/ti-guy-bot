@@ -1,7 +1,8 @@
 const axios = require('axios');
 
-const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
-const HEYGEN_AVATAR_ID = process.env.HEYGEN_AVATAR_ID;
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY || 'sk_V2_hgu_kvVu3bNy1vF_jamax0RVvqXUtTt2q3mXYCIL0spBQShv';
+const HEYGEN_AVATAR_ID = process.env.HEYGEN_AVATAR_ID || 'b29ffd36f69f4a40a03640030179426e';
+const HEYGEN_VOICE_ID = process.env.HEYGEN_VOICE_ID || '96bbe68098384730a067ed285021e496';
 
 async function createVideo(script, titre) {
     if (!HEYGEN_API_KEY || !HEYGEN_AVATAR_ID) {
