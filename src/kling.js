@@ -61,7 +61,7 @@ async function generateVideo(script) {
 
         const payload = {
             model_name: 'kling-v1-6',
-            image_url: avatarUrl,
+            image: avatarUrl,
             prompt: `Ti-Guy Desbois, French outdoor guide, speaking directly to camera, ${fond} outdoor background, natural movement, Pixar 3D cartoon style, friendly expression`,
             negative_prompt: 'blurry, distorted, unnatural movement',
             cfg_scale: 0.5,
