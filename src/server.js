@@ -65,6 +65,14 @@ app.post('/api/generate/conseil', auth, async (req, res) => {
     }
 });
 
+app.post('/api/generate/conseil', auth, async (req, res) => {
+    try {
+        const { sujet } = req.body;
+        console.log(`[API] Generation conseil: ${sujet || 'aleatoire'}`);
+        const script = await generateConseilScript(sujet);
+        console.log('[DEBUG] Script genere:', JSON.stringify(script));
+        saveScript(script);
+
 // Generer une revue produit manuellement
 app.post('/api/generate/revue', auth, async (req, res) => {
     try {
