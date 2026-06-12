@@ -20,10 +20,15 @@ async function saveAudioBuffer(audioBase64, destPath) {
 
 function runCmd(cmd) {
     return new Promise((resolve, reject) => {
-        const fullCmd = cmd.replace('ffmpeg ', '/usr/bin/ffmpeg ');
-        exec(fullCmd, (error, stdout, stderr) => {
-            if (error) reject(new Error(stderr || error.message));
-            else resolve(stdout);
+        // Trouver ffmpeg via which
+        exec('which ffmpeg || find /nix -name ffmpeg 2>/dev/null | head -1', (err, stdout) => {
+            const ffmpegPath = stdout.trim() || 'ffmpeg';
+            console.log(`[FFMPEG] Chemin ffmpeg: ${ffmpegPath}`);
+            const fullCmd = cmd.replace('ffmpeg ', ffmpegPath + ' ');
+            exec(fullCmd, (error, stdout2, stderr) => {
+                if (error) reject(new Error(stderr || error.message));
+                else resolve(stdout2);
+            });
         });
     });
 }
