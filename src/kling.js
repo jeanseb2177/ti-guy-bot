@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY || 'ABMC4TRNCHRyhHRFfJQmdnJN3KnMfDBM';
-const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY || 'DkbFmaFde9yyM8F9NKhJHMQDmTBFNLgg';
+const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY || 'AG9QApPyGGKntHaGQhhkAJHNEffeRFYE';
+const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY || 'mgTQepGCrAdMkyrmD9HaADn8Da48bBk3';
 const KLING_BASE_URL = 'https://api.klingai.com';
 
 // Images Ti-Guy — poses differentes selon situation
