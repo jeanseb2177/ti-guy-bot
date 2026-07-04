@@ -1,6 +1,7 @@
 const axios = require('axios');
 
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || 'sk_b269cc77630d27fbcd4cf10789ab747d88697f72a3ac80ce';
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+if (!ELEVENLABS_API_KEY) console.error('[ELEVENLABS] ELEVENLABS_API_KEY manquante dans les variables d\'environnement');
 const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io/v1';
 
 // Voice ID Ti-Guy — a configurer apres avoir clone la voix dans ElevenLabs
