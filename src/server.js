@@ -11,7 +11,8 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-const PASSWORD = process.env.DASHBOARD_PASSWORD || 'moncampdebase2026';
+const PASSWORD = process.env.DASHBOARD_PASSWORD;
+if (!PASSWORD) console.error('[SERVER] DASHBOARD_PASSWORD manquant dans les variables d\'environnement');
 
 function auth(req, res, next) {
     const token = req.headers['x-auth-token'] || req.query.token;
@@ -21,8 +22,11 @@ function auth(req, res, next) {
 
 function notifyTelegram(message) {
     const axios = require('axios');
-    axios.post(`https://api.telegram.org/bot8805063194:AAHq15LgKNKvIA-XiSUvKSMvSgaGTYVMoL8/sendMessage`, {
-        chat_id: '1954477261', text: message, parse_mode: 'HTML'
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return;
+    axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+        chat_id: chatId, text: message, parse_mode: 'HTML'
     }).catch(e => console.error('Telegram erreur:', e.message));
 }
 
