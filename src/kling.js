@@ -1,7 +1,10 @@
 const axios = require('axios');
 
-const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY || 'AG9QApPyGGKntHaGQhhkAJHNEffeRFYE';
-const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY || 'mgTQepGCrAdMkyrmD9HaADn8Da48bBk3';
+const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY;
+const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY;
+if (!KLING_ACCESS_KEY || !KLING_SECRET_KEY) {
+    console.error('[KLING] KLING_ACCESS_KEY / KLING_SECRET_KEY manquants dans les variables d\'environnement');
+}
 const KLING_BASE_URL = 'https://api.klingai.com';
 
 // Images Ti-Guy — 3 poses
@@ -127,8 +130,11 @@ async function checkTaskStatus(taskId) {
 }
 
 function notifyTelegram(message) {
-    axios.post(`https://api.telegram.org/bot8805063194:AAHq15LgKNKvIA-XiSUvKSMvSgaGTYVMoL8/sendMessage`, {
-        chat_id: '1954477261', text: message, parse_mode: 'HTML'
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return;
+    axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
+        chat_id: chatId, text: message, parse_mode: 'HTML'
     }).catch(e => console.error('Telegram erreur:', e.message));
 }
 
