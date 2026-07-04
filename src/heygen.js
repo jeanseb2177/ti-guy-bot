@@ -1,8 +1,8 @@
 const axios = require('axios');
 
-const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY || 'sk_V2_hgu_kvVu3bNy1vF_jamax0RVvqXUtTt2q3mXYCIL0spBQShv';
-const HEYGEN_AVATAR_ID = process.env.HEYGEN_AVATAR_ID || 'b29ffd36f69f4a40a03640030179426e';
-const HEYGEN_VOICE_ID = process.env.HEYGEN_VOICE_ID || '96bbe68098384730a067ed285021e496';
+const HEYGEN_API_KEY = process.env.HEYGEN_API_KEY;
+const HEYGEN_AVATAR_ID = process.env.HEYGEN_AVATAR_ID;
+const HEYGEN_VOICE_ID = process.env.HEYGEN_VOICE_ID;
 
 async function createVideo(script, titre) {
     if (!HEYGEN_API_KEY || !HEYGEN_AVATAR_ID) {
@@ -62,8 +62,9 @@ async function checkVideoStatus(jobId) {
 }
 
 function notifyTelegram(message) {
-    const token = '8805063194:AAHq15LgKNKvIA-XiSUvKSMvSgaGTYVMoL8';
-    const chatId = '1954477261';
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) return;
     axios.post(`https://api.telegram.org/bot${token}/sendMessage`, {
         chat_id: chatId, text: message, parse_mode: 'HTML'
     }).catch(e => console.error('Erreur Telegram:', e.message));
