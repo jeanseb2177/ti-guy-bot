@@ -2,9 +2,9 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 
-const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || 'dgewt5fjh';
-const API_KEY = process.env.CLOUDINARY_API_KEY || '294327344266591';
-const API_SECRET = process.env.CLOUDINARY_API_SECRET || '7Y-Cha_bTgcqPy_vFSEDXQACuwQ';
+const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME;
+const API_KEY = process.env.CLOUDINARY_API_KEY;
+const API_SECRET = process.env.CLOUDINARY_API_SECRET;
 
 async function uploadVideo(filePath, publicId) {
     try {
