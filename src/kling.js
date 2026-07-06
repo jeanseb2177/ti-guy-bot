@@ -9,10 +9,12 @@ if (!KLING_ACCESS_KEY || !KLING_SECRET_KEY) {
 }
 const KLING_BASE_URL = 'https://api.klingai.com';
 
-// Images Ti-Guy — 3 poses
-const TIGUY_AVATAR_3QUART = 'https://i.imgur.com/bFOdwNy.png';
-const TIGUY_AVATAR_COTE   = 'https://i.imgur.com/bstQEF9.png';
-const TIGUY_AVATAR_FACE   = 'https://i.imgur.com/A175fTf.png';
+const path = require('path');
+
+// Images Ti-Guy — lues localement depuis le repo (plus fiable qu'Imgur qui bloque les requetes serveur)
+const TIGUY_AVATAR_3QUART = path.join(__dirname, '../assets/tiguy_3quart.png');
+const TIGUY_AVATAR_COTE   = path.join(__dirname, '../assets/tiguy_cote.png');
+const TIGUY_AVATAR_FACE   = path.join(__dirname, '../assets/tiguy_face.png');
 
 const FONDS_OUTDOOR = {
     pluie:     'https://images.unsplash.com/photo-1501691223387-dd0500403074?w=1080',
