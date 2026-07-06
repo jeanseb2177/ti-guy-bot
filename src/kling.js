@@ -71,6 +71,24 @@ function diviserScript(script) {
     ].filter(p => p.length > 0);
 }
 
+async function postAvecRetry(payload, tentative = 1) {
+    try {
+        return await axios.post(
+            `${KLING_BASE_URL}/v1/videos/image2video`,
+            payload,
+            { headers: getAuthHeaders(), timeout: 30000 }
+        );
+    } catch (error) {
+        if (error.response?.status === 429 && tentative <= 3) {
+            const attente = tentative * 5000; // 5s, 10s, 15s
+            console.log(`[KLING] 429 recu, nouvelle tentative dans ${attente / 1000}s (${tentative}/3)...`);
+            await new Promise(r => setTimeout(r, attente));
+            return postAvecRetry(payload, tentative + 1);
+        }
+        throw error;
+    }
+}
+
 async function genererUnClip(avatarUrl, fondUrl, fondNom, prompt, clipIndex) {
     // Composer Ti-Guy detoure sur le vrai decor AVANT d'envoyer a Kling
     console.log(`[KLING] Composition scene ${clipIndex + 1}/3 (decor: ${fondNom})...`);
@@ -90,11 +108,7 @@ async function genererUnClip(avatarUrl, fondUrl, fondNom, prompt, clipIndex) {
         duration: '10'
     };
 
-    const response = await axios.post(
-        `${KLING_BASE_URL}/v1/videos/image2video`,
-        payload,
-        { headers: getAuthHeaders(), timeout: 30000 }
-    );
+    const response = await postAvecRetry(payload);
 
     const taskId = response.data?.data?.task_id;
     if (!taskId) throw new Error(`Pas de task_id pour clip ${clipIndex + 1}`);
@@ -111,10 +125,13 @@ async function generateVideo(script) {
         console.log(`[KLING] Generation 3 clips - decor: ${fondNom}`);
         console.log(`[KLING] Script divise en ${parties.length} parties`);
 
-        // Lancer les 3 clips en parallele, chacun avec une pose differente
-        const taskIds = await Promise.all(
-            parties.map((partie, i) => genererUnClip(POSES[i % POSES.length], fondUrl, fondNom, partie, i))
-        );
+        // Lancer les 3 clips l'un apres l'autre (espaces de 3s) pour eviter le rate limit Kling
+        const taskIds = [];
+        for (let i = 0; i < parties.length; i++) {
+            const taskId = await genererUnClip(POSES[i % POSES.length], fondUrl, fondNom, parties[i], i);
+            taskIds.push(taskId);
+            if (i < parties.length - 1) await new Promise(r => setTimeout(r, 3000));
+        }
 
         return { task_ids: taskIds, status: 'processing', fond: fondNom, nb_clips: taskIds.length };
 
