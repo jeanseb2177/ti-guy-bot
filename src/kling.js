@@ -105,18 +105,18 @@ async function postAvecRetry(payload, tentative = 1) {
     }
 }
 
-async function genererUnClip(avatarUrl, fondUrl, fondNom, prompt, clipIndex) {
+async function genererUnClip(avatarUrl, fondUrl, fondNom, prompt, action, clipIndex) {
     // Composer Ti-Guy detoure sur le vrai decor AVANT d'envoyer a Kling
     console.log(`[KLING] Composition scene ${clipIndex + 1}/3 (decor: ${fondNom})...`);
     const sceneBuffer = await composerScene(avatarUrl, fondUrl);
     const sceneUrl = await uploadImage(sceneBuffer, `scene_${Date.now()}_${clipIndex}`);
 
-    const action = ACTIONS_PAR_SCENE[clipIndex % ACTIONS_PAR_SCENE.length];
+    const contexteNarration = prompt.replace(/\*/g, '').replace(/[()]/g, '').substring(0, 180).trim();
 
     const payload = {
         model_name: 'kling-v1-6',
         image: sceneUrl,
-        prompt: `Ti-Guy Desbois, French outdoor guide, ${action}, ${fondNom} outdoor setting, Pixar 3D cartoon style, friendly expression, scene ${clipIndex + 1} of 3`,
+        prompt: `Ti-Guy Desbois, French outdoor guide, ${action}, visually acting out and demonstrating this exact moment: "${contexteNarration}", ${fondNom} outdoor setting, Pixar 3D cartoon style, friendly expression, natural movement matching the described action and props, scene ${clipIndex + 1} of 3`,
         negative_prompt: 'blurry, distorted, unnatural movement, text, watermark, static, motionless',
         cfg_scale: 0.5,
         mode: 'std',
@@ -143,20 +143,24 @@ async function attendreClipTermine(taskId, clipIndex, maxTentatives = 60, interv
     throw new Error(`Timeout clip ${clipIndex + 1}: ${taskId}`);
 }
 
-async function generateVideo(script) {
+async function generateVideo(script, scenes = null) {
     try {
         const fondNom = detectFond(script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
         const parties = diviserScript(script);
         if (parties.length === 0) throw new Error('diviserScript a renvoye 0 partie - script vide ou invalide');
 
-        console.log(`[KLING] Generation ${parties.length} clips sequentiels - decor: ${fondNom}`);
+        // Utiliser les 3 descriptions visuelles du scenario si disponibles (mini-film),
+        // sinon retomber sur les actions generiques (compatibilite ancien format)
+        const actionsAUtiliser = (scenes && scenes.length >= parties.length)
+            ? scenes
+            : parties.map((_, i) => ACTIONS_PAR_SCENE[i % ACTIONS_PAR_SCENE.length]);
 
-        // Sequentiel complet: on attend que chaque clip soit VRAIMENT termine (pas juste envoye)
-        // avant de commander le suivant, + 10s de pause -- evite le 429 de generations concurrentes
+        console.log(`[KLING] Generation ${parties.length} clips sequentiels - decor: ${fondNom} - scenario: ${scenes ? 'oui (mini-film)' : 'non (generique)'}`);
+
         const videoUrls = [];
         for (let i = 0; i < parties.length; i++) {
-            const taskId = await genererUnClip(POSES[i % POSES.length], fondUrl, fondNom, parties[i], i);
+            const taskId = await genererUnClip(POSES[i % POSES.length], fondUrl, fondNom, parties[i], actionsAUtiliser[i], i);
             console.log(`[KLING] Attente completion clip ${i + 1}/${parties.length}...`);
             const videoUrl = await attendreClipTermine(taskId, i);
             videoUrls.push(videoUrl);
