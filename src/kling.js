@@ -56,19 +56,33 @@ const ACTIONS_PAR_SCENE = [
 
 // Diviser le script en 3 parties egales pour 3 clips de 10 secondes
 function diviserScript(script) {
-    const propre = script
+    let propre = script
         .replace(/\*[^*]+\*/g, '')
         .replace(/\([^)]+\)/g, '')
         .trim();
 
-    const phrases = propre.split(/[.!?]+/).filter(p => p.trim().length > 5);
-    const tiers = Math.ceil(phrases.length / 3);
+    let phrases = propre.split(/[.!?]+/).filter(p => p.trim().length > 5);
 
-    return [
+    // Filet 1: le nettoyage a tout supprime (asterisques non-appairees) -> nettoyage plus doux
+    if (phrases.length === 0) {
+        propre = script.replace(/\*/g, '').trim();
+        phrases = propre.split(/[.!?]+/).filter(p => p.trim().length > 5);
+    }
+
+    // Filet 2: toujours rien -> on garde le script brut comme une seule partie
+    if (phrases.length === 0) {
+        phrases = [script.trim()];
+    }
+
+    const tiers = Math.ceil(phrases.length / 3);
+    const parties = [
         phrases.slice(0, tiers).join('. ').trim(),
         phrases.slice(tiers, tiers * 2).join('. ').trim(),
         phrases.slice(tiers * 2).join('. ').trim()
     ].filter(p => p.length > 0);
+
+    // Filet 3: garantie absolue de ne jamais renvoyer un tableau vide
+    return parties.length > 0 ? parties : [script.trim() || 'Ti-Guy explore le grand air.'];
 }
 
 async function postAvecRetry(payload, tentative = 1) {
@@ -121,6 +135,7 @@ async function generateVideo(script) {
         const fondNom = detectFond(script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
         const parties = diviserScript(script);
+        if (parties.length === 0) throw new Error('diviserScript a renvoye 0 partie - script vide ou invalide');
 
         console.log(`[KLING] Generation 3 clips - decor: ${fondNom}`);
         console.log(`[KLING] Script divise en ${parties.length} parties`);
