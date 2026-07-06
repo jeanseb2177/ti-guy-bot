@@ -73,7 +73,7 @@ async function genererAvecPipeline(script) {
         // Etape 2: Generation sequentielle des clips Kling (attend chaque clip avant le suivant)
         console.log('[PIPELINE] Etape 2: Generation clips Kling (sequentiel, avec attente)...');
         updateScript(script.id, { statut: 'video_en_cours' });
-        const kling = await klingGenerateVideo(script.script);
+        const kling = await klingGenerateVideo(script.script, script.scenes);
         const videoUrls = kling.video_urls;
         console.log(`[PIPELINE] ${videoUrls.length} clips Kling termines.`);
 
