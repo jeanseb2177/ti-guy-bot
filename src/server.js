@@ -6,6 +6,7 @@ const { generateAudio, getVoices } = require('./elevenlabs');
 const { mergeAudioVideo, cleanupScript } = require('./ffmpeg');
 const { uploadVideo } = require('./cloudinary');
 const { saveScript, getAllScripts, updateScript, deleteScript, getScript } = require('./store');
+const { getConnectUrl, listIntegrations, publishVideo } = require('./postpeer');
 
 const app = express();
 app.use(express.json());
@@ -131,6 +132,7 @@ app.post('/api/generate/conseil', auth, async (req, res) => {
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -144,6 +146,7 @@ app.post('/api/generate/revue', auth, async (req, res) => {
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -157,6 +160,7 @@ app.post('/api/generate/custom', auth, async (req, res) => {
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -186,6 +190,7 @@ app.post('/api/scripts/:id/regenerer', auth, async (req, res) => {
         genererAvecPipeline(nouveau).catch(e => console.error('[API] Erreur regen:', e.message));
         res.json(nouveau);
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -195,10 +200,55 @@ app.delete('/api/scripts/:id', auth, (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/scripts/:id/publier', auth, (req, res) => {
-    const script = updateScript(req.params.id, { statut: 'publie', date_publication: new Date().toISOString() });
+// Etape 1 (une seule fois par plateforme): obtenir le lien d'autorisation TikTok/Instagram
+app.get('/api/postpeer/connect/:platform', auth, async (req, res) => {
+    try {
+        const data = await getConnectUrl(req.params.platform);
+        res.json(data);
+    } catch (error) {
+        console.error('[API] Erreur:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Voir les comptes deja connectes (et leurs accountId a utiliser dans .env)
+app.get('/api/postpeer/integrations', auth, async (req, res) => {
+    try {
+        const data = await listIntegrations();
+        res.json(data);
+    } catch (error) {
+        console.error('[API] Erreur:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/scripts/:id/publier', auth, async (req, res) => {
+    const script = getScript(req.params.id);
     if (!script) return res.status(404).json({ error: 'Script non trouve' });
-    res.json(script);
+
+    const accountsEnv = process.env.POSTPEER_ACCOUNTS; // ex: tiktok:acc_xxx,instagram:acc_yyy
+    if (!script.video_url || !accountsEnv) {
+        // Fallback: pas de video ou pas de comptes connectes -> on marque juste publie manuellement
+        const updated = updateScript(req.params.id, { statut: 'publie', date_publication: new Date().toISOString() });
+        return res.json(updated);
+    }
+
+    try {
+        const accounts = accountsEnv.split(',').map(pair => {
+            const [platform, accountId] = pair.split(':');
+            return { platform, accountId };
+        });
+        const caption = `${script.titre}\n\n#${script.hashtags.replace(/,\s*/g, ' #')}`;
+        const result = await publishVideo(script.video_url, caption, accounts);
+        const updated = updateScript(req.params.id, {
+            statut: 'publie',
+            date_publication: new Date().toISOString(),
+            postpeer_result: result.platforms
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Publication PostPeer echouee: ' + error.message });
+    }
 });
 
 app.get('/api/scripts/:id/video-status', auth, async (req, res) => {
@@ -212,6 +262,7 @@ app.get('/api/voices', auth, async (req, res) => {
         const voices = await getVoices();
         res.json(voices.map(v => ({ id: v.voice_id, name: v.name })));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
