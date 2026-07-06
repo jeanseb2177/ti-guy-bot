@@ -69,4 +69,33 @@ async function uploadAudio(filePath, publicId) {
     }
 }
 
-module.exports = { uploadVideo, uploadAudio };
+async function uploadImage(buffer, publicId) {
+    try {
+        const crypto = require('crypto');
+        const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'tiguy-bot/scenes';
+        const signature = crypto.createHash('sha1')
+            .update(`folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
+            .digest('hex');
+
+        const form = new FormData();
+        form.append('file', buffer, { filename: `${publicId}.png`, contentType: 'image/png' });
+        form.append('api_key', API_KEY);
+        form.append('timestamp', timestamp);
+        form.append('signature', signature);
+        form.append('public_id', publicId);
+        form.append('folder', folder);
+
+        const response = await axios.post(
+            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+            form,
+            { headers: form.getHeaders(), timeout: 60000 }
+        );
+        return response.data.secure_url;
+    } catch (error) {
+        console.error('[CLOUDINARY] Erreur upload image:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+module.exports = { uploadVideo, uploadAudio, uploadImage };
