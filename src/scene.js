@@ -1,23 +1,36 @@
 const sharp = require('sharp');
 const axios = require('axios');
+const fs = require('fs');
 
 const cacheImages = new Map();
 
-async function fetchBuffer(url, tentative = 1) {
-    if (cacheImages.has(url)) return cacheImages.get(url);
+async function fetchBuffer(urlOuChemin, tentative = 1) {
+    if (cacheImages.has(urlOuChemin)) return cacheImages.get(urlOuChemin);
+
+    // Fichier local (chemin absolu, pas une URL http)
+    if (!urlOuChemin.startsWith('http')) {
+        const buffer = fs.readFileSync(urlOuChemin);
+        cacheImages.set(urlOuChemin, buffer);
+        return buffer;
+    }
+
     try {
-        const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+        const res = await axios.get(urlOuChemin, {
+            responseType: 'arraybuffer',
+            timeout: 30000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
+        });
         const buffer = Buffer.from(res.data);
-        cacheImages.set(url, buffer);
+        cacheImages.set(urlOuChemin, buffer);
         return buffer;
     } catch (error) {
         if (error.response?.status === 429 && tentative <= 3) {
             const attente = tentative * 4000;
-            console.log(`[SCENE] 429 sur ${url.substring(0, 50)}... nouvelle tentative dans ${attente / 1000}s (${tentative}/3)`);
+            console.log(`[SCENE] 429 sur ${urlOuChemin.substring(0, 50)}... nouvelle tentative dans ${attente / 1000}s (${tentative}/3)`);
             await new Promise(r => setTimeout(r, attente));
-            return fetchBuffer(url, tentative + 1);
+            return fetchBuffer(urlOuChemin, tentative + 1);
         }
-        console.error(`[SCENE] Erreur telechargement ${url.substring(0, 60)}:`, error.response?.status || error.message);
+        console.error(`[SCENE] Erreur telechargement ${urlOuChemin.substring(0, 60)}:`, error.response?.status || error.message);
         throw error;
     }
 }
