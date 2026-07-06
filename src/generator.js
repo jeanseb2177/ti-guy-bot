@@ -60,7 +60,9 @@ Format de réponse:
         }]
     });
     
-    return parseScript(response.content[0].text, 'conseil', topic);
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('Reponse Claude sans bloc texte: ' + JSON.stringify(response.content));
+    return parseScript(textBlock.text, 'conseil', topic);
 }
 
 async function generateRevueProduit(nomProduit = null) {
@@ -96,7 +98,9 @@ Format de réponse:
         }]
     });
     
-    return parseScript(response.content[0].text, 'revue', produit);
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('Reponse Claude sans bloc texte: ' + JSON.stringify(response.content));
+    return parseScript(textBlock.text, 'revue', produit);
 }
 
 async function generateScriptCustom(instructions) {
@@ -122,7 +126,9 @@ Format de réponse:
         }]
     });
     
-    return parseScript(response.content[0].text, 'custom', instructions.substring(0, 50));
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (!textBlock) throw new Error('Reponse Claude sans bloc texte: ' + JSON.stringify(response.content));
+    return parseScript(textBlock.text, 'custom', instructions.substring(0, 50));
 }
 
 function parseScript(text, type, sujet) {
