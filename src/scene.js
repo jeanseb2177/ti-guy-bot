@@ -1,9 +1,25 @@
 const sharp = require('sharp');
 const axios = require('axios');
 
-async function fetchBuffer(url) {
-    const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
-    return Buffer.from(res.data);
+const cacheImages = new Map();
+
+async function fetchBuffer(url, tentative = 1) {
+    if (cacheImages.has(url)) return cacheImages.get(url);
+    try {
+        const res = await axios.get(url, { responseType: 'arraybuffer', timeout: 30000 });
+        const buffer = Buffer.from(res.data);
+        cacheImages.set(url, buffer);
+        return buffer;
+    } catch (error) {
+        if (error.response?.status === 429 && tentative <= 3) {
+            const attente = tentative * 4000;
+            console.log(`[SCENE] 429 sur ${url.substring(0, 50)}... nouvelle tentative dans ${attente / 1000}s (${tentative}/3)`);
+            await new Promise(r => setTimeout(r, attente));
+            return fetchBuffer(url, tentative + 1);
+        }
+        console.error(`[SCENE] Erreur telechargement ${url.substring(0, 60)}:`, error.response?.status || error.message);
+        throw error;
+    }
 }
 
 // Rend transparents les pixels proches du blanc (fond des images de reference Ti-Guy)
