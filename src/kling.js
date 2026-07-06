@@ -130,6 +130,17 @@ async function genererUnClip(avatarUrl, fondUrl, fondNom, prompt, clipIndex) {
     return taskId;
 }
 
+async function attendreClipTermine(taskId, clipIndex, maxTentatives = 60, intervalleMs = 15000) {
+    for (let i = 0; i < maxTentatives; i++) {
+        await new Promise(r => setTimeout(r, intervalleMs));
+        const status = await checkTaskStatus(taskId);
+        console.log(`[KLING] Clip ${clipIndex + 1} - statut: ${status.status} (${i + 1}/${maxTentatives})`);
+        if (status.video_url) return status.video_url;
+        if (status.status === 'failed') throw new Error(`Clip Kling echoue: ${taskId}`);
+    }
+    throw new Error(`Timeout clip ${clipIndex + 1}: ${taskId}`);
+}
+
 async function generateVideo(script) {
     try {
         const fondNom = detectFond(script);
@@ -137,18 +148,24 @@ async function generateVideo(script) {
         const parties = diviserScript(script);
         if (parties.length === 0) throw new Error('diviserScript a renvoye 0 partie - script vide ou invalide');
 
-        console.log(`[KLING] Generation 3 clips - decor: ${fondNom}`);
-        console.log(`[KLING] Script divise en ${parties.length} parties`);
+        console.log(`[KLING] Generation ${parties.length} clips sequentiels - decor: ${fondNom}`);
 
-        // Lancer les 3 clips l'un apres l'autre (espaces de 3s) pour eviter le rate limit Kling
-        const taskIds = [];
+        // Sequentiel complet: on attend que chaque clip soit VRAIMENT termine (pas juste envoye)
+        // avant de commander le suivant, + 10s de pause -- evite le 429 de generations concurrentes
+        const videoUrls = [];
         for (let i = 0; i < parties.length; i++) {
             const taskId = await genererUnClip(POSES[i % POSES.length], fondUrl, fondNom, parties[i], i);
-            taskIds.push(taskId);
-            if (i < parties.length - 1) await new Promise(r => setTimeout(r, 3000));
+            console.log(`[KLING] Attente completion clip ${i + 1}/${parties.length}...`);
+            const videoUrl = await attendreClipTermine(taskId, i);
+            videoUrls.push(videoUrl);
+            console.log(`[KLING] Clip ${i + 1} termine.`);
+            if (i < parties.length - 1) {
+                console.log('[KLING] Pause 10s avant le clip suivant...');
+                await new Promise(r => setTimeout(r, 10000));
+            }
         }
 
-        return { task_ids: taskIds, status: 'processing', fond: fondNom, nb_clips: taskIds.length };
+        return { video_urls: videoUrls, status: 'completed', fond: fondNom, nb_clips: videoUrls.length };
 
     } catch (error) {
         console.error('[KLING] Erreur generation:', error.response?.data || error.message);
