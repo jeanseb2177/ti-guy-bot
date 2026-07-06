@@ -1,4 +1,6 @@
 const axios = require('axios');
+const { composerScene } = require('./scene');
+const { uploadImage } = require('./cloudinary');
 
 const KLING_ACCESS_KEY = process.env.KLING_ACCESS_KEY;
 const KLING_SECRET_KEY = process.env.KLING_SECRET_KEY;
@@ -43,11 +45,14 @@ function detectFond(script) {
     return 'camping';
 }
 
-function choisirAvatar(fond) {
-    if (fond === 'randonnee' || fond === 'montagne') return TIGUY_AVATAR_3QUART;
-    if (fond === 'pluie' || fond === 'foret') return TIGUY_AVATAR_COTE;
-    return TIGUY_AVATAR_FACE;
-}
+const POSES = [TIGUY_AVATAR_FACE, TIGUY_AVATAR_3QUART, TIGUY_AVATAR_COTE];
+
+// Actions d'aventure par position dans la video (au lieu de "parler a la camera")
+const ACTIONS_PAR_SCENE = [
+    'arriving at the location, looking around with excitement, natural walking motion, discovering the environment',
+    'actively demonstrating the gear or technique with enthusiastic hand gestures, engaged natural movement',
+    'giving a big thumbs up and warm smile directly at viewer, celebratory natural movement, inviting gesture'
+];
 
 // Diviser le script en 3 parties egales pour 3 clips de 10 secondes
 function diviserScript(script) {
@@ -66,12 +71,19 @@ function diviserScript(script) {
     ].filter(p => p.length > 0);
 }
 
-async function genererUnClip(avatarUrl, fond, prompt, clipIndex) {
+async function genererUnClip(avatarUrl, fondUrl, fondNom, prompt, clipIndex) {
+    // Composer Ti-Guy detoure sur le vrai decor AVANT d'envoyer a Kling
+    console.log(`[KLING] Composition scene ${clipIndex + 1}/3 (decor: ${fondNom})...`);
+    const sceneBuffer = await composerScene(avatarUrl, fondUrl);
+    const sceneUrl = await uploadImage(sceneBuffer, `scene_${Date.now()}_${clipIndex}`);
+
+    const action = ACTIONS_PAR_SCENE[clipIndex % ACTIONS_PAR_SCENE.length];
+
     const payload = {
         model_name: 'kling-v1-6',
-        image: avatarUrl,
-        prompt: `Ti-Guy Desbois, French outdoor guide, speaking to camera, ${fond} outdoor background, natural movement, Pixar 3D cartoon style, friendly expression, scene ${clipIndex + 1} of 3`,
-        negative_prompt: 'blurry, distorted, unnatural movement, text, watermark',
+        image: sceneUrl,
+        prompt: `Ti-Guy Desbois, French outdoor guide, ${action}, ${fondNom} outdoor setting, Pixar 3D cartoon style, friendly expression, scene ${clipIndex + 1} of 3`,
+        negative_prompt: 'blurry, distorted, unnatural movement, text, watermark, static, motionless',
         cfg_scale: 0.5,
         mode: 'std',
         aspect_ratio: '9:16',
@@ -92,19 +104,19 @@ async function genererUnClip(avatarUrl, fond, prompt, clipIndex) {
 
 async function generateVideo(script) {
     try {
-        const fond = detectFond(script);
-        const avatarUrl = choisirAvatar(fond);
+        const fondNom = detectFond(script);
+        const fondUrl = FONDS_OUTDOOR[fondNom];
         const parties = diviserScript(script);
 
-        console.log(`[KLING] Generation 3 clips - fond: ${fond} - avatar: ${avatarUrl}`);
+        console.log(`[KLING] Generation 3 clips - decor: ${fondNom}`);
         console.log(`[KLING] Script divise en ${parties.length} parties`);
 
-        // Lancer les 3 clips en parallele
+        // Lancer les 3 clips en parallele, chacun avec une pose differente
         const taskIds = await Promise.all(
-            parties.map((partie, i) => genererUnClip(avatarUrl, fond, partie, i))
+            parties.map((partie, i) => genererUnClip(POSES[i % POSES.length], fondUrl, fondNom, partie, i))
         );
 
-        return { task_ids: taskIds, status: 'processing', fond, nb_clips: taskIds.length };
+        return { task_ids: taskIds, status: 'processing', fond: fondNom, nb_clips: taskIds.length };
 
     } catch (error) {
         console.error('[KLING] Erreur generation:', error.response?.data || error.message);
