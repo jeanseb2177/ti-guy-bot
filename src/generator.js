@@ -31,7 +31,7 @@ async function generateConseilScript(sujet = null) {
     const topic = sujet || await getRandomTopic('conseil');
     
     const response = await client.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: 600,
         system: TIGUY_PERSONA,
         messages: [{
@@ -67,7 +67,7 @@ async function generateRevueProduit(nomProduit = null) {
     const produit = nomProduit || await getRandomTopic('produit');
     
     const response = await client.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: 600,
         system: TIGUY_PERSONA,
         messages: [{
@@ -101,7 +101,7 @@ Format de réponse:
 
 async function generateScriptCustom(instructions) {
     const response = await client.messages.create({
-        model: 'claude-opus-4-6',
+        model: 'claude-sonnet-5',
         max_tokens: 600,
         system: TIGUY_PERSONA,
         messages: [{
