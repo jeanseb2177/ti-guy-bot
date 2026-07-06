@@ -70,27 +70,12 @@ async function genererAvecPipeline(script) {
         const audio = await generateAudio(script.script);
         updateScript(script.id, { audio_base64: audio.audio_base64, statut: 'audio_pret' });
 
-        // Etape 2: 3 clips Kling en parallele
-        console.log('[PIPELINE] Etape 2: Generation 3 clips Kling...');
+        // Etape 2: Generation sequentielle des clips Kling (attend chaque clip avant le suivant)
+        console.log('[PIPELINE] Etape 2: Generation clips Kling (sequentiel, avec attente)...');
+        updateScript(script.id, { statut: 'video_en_cours' });
         const kling = await klingGenerateVideo(script.script);
-        updateScript(script.id, { kling_task_ids: kling.task_ids, statut: 'video_en_cours' });
-
-        // Etape 3: Attendre tous les clips (polling 15 sec, max 15 min)
-        console.log('[PIPELINE] Etape 3: Attente clips Kling...');
-        const videoUrls = [];
-        for (const taskId of kling.task_ids) {
-            let videoUrl = null;
-            for (let i = 0; i < 60; i++) {
-                await new Promise(r => setTimeout(r, 15000));
-                const status = await checkTaskStatus(taskId);
-                console.log(`[PIPELINE] Task ${taskId}: ${status.status} (${i+1}/60)`);
-                if (status.video_url) { videoUrl = status.video_url; break; }
-                if (status.status === 'failed') throw new Error(`Clip Kling echoue: ${taskId}`);
-            }
-            if (!videoUrl) throw new Error(`Timeout clip: ${taskId}`);
-            videoUrls.push(videoUrl);
-            console.log(`[PIPELINE] Clip pret: ${videoUrl.substring(0, 60)}...`);
-        }
+        const videoUrls = kling.video_urls;
+        console.log(`[PIPELINE] ${videoUrls.length} clips Kling termines.`);
 
         updateScript(script.id, { kling_video_urls: videoUrls, statut: 'fusion_en_cours' });
 
