@@ -32,28 +32,39 @@ async function generateConseilScript(sujet = null) {
     
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 600,
+        max_tokens: 900,
         system: TIGUY_PERSONA,
         messages: [{
             role: 'user',
-            content: `Génère un script vidéo CONSEIL PLEIN AIR pour Ti-Guy.
+            content: `Génère un MINI-FILM DE 30 SECONDES pour Ti-Guy, pas juste un conseil raconté à la caméra.
+
 Sujet: ${topic}
 Saison: ${getSaison()}
-Durée cible: 35-40 secondes (environ 90-100 mots parlés)
+Durée cible: 35-40 secondes de narration (environ 90-100 mots parlés)
 
-Le script doit:
-- Commencer par une accroche visuelle forte (Ti-Guy EN SITUATION)
-- Donner UN conseil pratique concret
-- Glisser 1-2 expressions québécoises naturellement
-- Mentionner moncampdebase.com organiquement à la fin
-- Être fun, pas corporatif
+STRUCTURE OBLIGATOIRE EN 3 ACTES (un vrai scenario, pas Ti-Guy qui parle en boucle) :
+- ACTE 1 (obstacle): Ti-Guy est en pleine action et rencontre un vrai probleme concret lie au sujet (ex: le vent qui rend sa tente impossible a monter, la pluie qui trempe son sac, etc.) Le probleme doit etre VISUEL et physique, pas juste raconte.
+- ACTE 2 (astuce en action): Ti-Guy applique PHYSIQUEMENT l'astuce pour resoudre le probleme — on le VOIT faire le geste technique, pas juste l'entendre l'expliquer.
+- ACTE 3 (victoire): Le probleme est resolu, Ti-Guy savoure sa victoire (sourire, soulagement, fierte) et fait le lien vers moncampdebase.com.
 
-Format de réponse:
+Le texte parle (SCRIPT) doit accompagner ces 3 actes de facon naturelle, comme si Ti-Guy narrait sa propre aventure en la vivant.
+Glisse 1-2 expressions québécoises naturellement.
+
+Format de réponse (respecte exactement ces sections):
 ## TITRE
 [Titre accrocheur pour la vidéo]
 
 ## SCRIPT
-[Script complet tel que Ti-Guy le dit, avec indications de ton entre parenthèses si nécessaire]
+[Script complet tel que Ti-Guy le dit, suit les 3 actes]
+
+## SCENE1
+[Description VISUELLE en anglais de l'ACTE 1 - le probleme concret, action physique, ex: "fighting against strong wind while tent fabric whips violently, struggling to hold poles in place, frustrated expression"]
+
+## SCENE2
+[Description VISUELLE en anglais de l'ACTE 2 - le geste technique precis pour appliquer l'astuce, ex: "kneeling down, driving tent stakes at a low angle into the ground, using rocks to weigh down the base, focused and skilled movements"]
+
+## SCENE3
+[Description VISUELLE en anglais de l'ACTE 3 - la victoire, ex: "standing proudly next to the now-secured tent despite the wind, big relieved smile, thumbs up to camera"]
 
 ## HASHTAGS
 [10 hashtags FR pertinents sans #]`
@@ -70,28 +81,39 @@ async function generateRevueProduit(nomProduit = null) {
     
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 600,
+        max_tokens: 900,
         system: TIGUY_PERSONA,
         messages: [{
             role: 'user',
-            content: `Génère un script vidéo REVUE PRODUIT pour Ti-Guy.
+            content: `Génère un MINI-FILM DE 30 SECONDES pour une REVUE PRODUIT Ti-Guy, pas juste une revue racontée à la caméra.
+
 Produit: ${produit}
 Saison: ${getSaison()}
 Durée cible: 35-40 secondes (environ 90-100 mots parlés)
 
-La revue doit:
-- Commencer par Ti-Guy EN SITUATION avec le produit (pas devant une caméra)
-- Être honnête et tranchante — une vraie opinion de terrain
-- Utiliser une métaphore outdoor unique et mémorable
-- Glisser 1-2 expressions québécoises naturellement
-- Conclure vers moncampdebase.com de façon naturelle
+STRUCTURE OBLIGATOIRE EN 3 ACTES :
+- ACTE 1 (situation): Ti-Guy est en pleine aventure outdoor et rencontre une situation ou le produit va etre teste (ex: pluie soudaine et le poncho). Visuel et physique.
+- ACTE 2 (le produit en action): Ti-Guy utilise PHYSIQUEMENT le produit — on le VOIT s'en servir en conditions reelles, pas juste l'entendre en parler.
+- ACTE 3 (verdict): Ti-Guy donne son verdict honnête et tranchant (avec metaphore outdoor unique), satisfait ou nuance, et fait le lien vers moncampdebase.com.
 
-Format de réponse:
+Le texte parle (SCRIPT) doit accompagner ces 3 actes naturellement.
+Glisse 1-2 expressions québécoises naturellement.
+
+Format de réponse (respecte exactement ces sections):
 ## TITRE
 [Titre accrocheur ex: "Ce poncho m'a sauvé au Mont Blanc"]
 
 ## SCRIPT
-[Script complet tel que Ti-Guy le dit]
+[Script complet tel que Ti-Guy le dit, suit les 3 actes]
+
+## SCENE1
+[Description VISUELLE en anglais de l'ACTE 1 - la situation qui va tester le produit]
+
+## SCENE2
+[Description VISUELLE en anglais de l'ACTE 2 - Ti-Guy utilisant physiquement le produit]
+
+## SCENE3
+[Description VISUELLE en anglais de l'ACTE 3 - le verdict, expression faciale correspondante, thumbs up ou geste de satisfaction]
 
 ## HASHTAGS
 [10 hashtags FR pertinents sans #]`
@@ -106,20 +128,31 @@ Format de réponse:
 async function generateScriptCustom(instructions) {
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 600,
+        max_tokens: 900,
         system: TIGUY_PERSONA,
         messages: [{
             role: 'user',
-            content: `Génère un script vidéo Ti-Guy avec ces instructions:
+            content: `Génère un MINI-FILM DE 30 SECONDES pour Ti-Guy avec ces instructions:
 ${instructions}
 Saison: ${getSaison()}
 
-Format de réponse:
+Structure en 3 actes si possible (obstacle/situation -> action concrete -> resolution), sinon adapte selon les instructions.
+
+Format de réponse (respecte exactement ces sections):
 ## TITRE
 [Titre accrocheur]
 
 ## SCRIPT
 [Script complet]
+
+## SCENE1
+[Description VISUELLE en anglais du debut de la video]
+
+## SCENE2
+[Description VISUELLE en anglais du milieu de la video]
+
+## SCENE3
+[Description VISUELLE en anglais de la fin de la video]
 
 ## HASHTAGS
 [10 hashtags FR sans #]`
@@ -135,13 +168,17 @@ function parseScript(text, type, sujet) {
     const titre = extractSection(text, 'TITRE');
     const script = extractSection(text, 'SCRIPT');
     const hashtags = extractSection(text, 'HASHTAGS');
-    
+    const scene1 = extractSection(text, 'SCENE1');
+    const scene2 = extractSection(text, 'SCENE2');
+    const scene3 = extractSection(text, 'SCENE3');
+
     return {
         id: Date.now().toString(),
         type,
         sujet,
         titre: titre || 'Ti-Guy — Mon Camp de Base',
         script: script || text,
+        scenes: [scene1, scene2, scene3].filter(s => s && s.length > 0),
         hashtags: hashtags || 'camping randonnee plein air outdoor france',
         saison: getSaison(),
         date_creation: new Date().toISOString(),
