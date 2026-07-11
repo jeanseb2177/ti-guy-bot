@@ -1,2 +1,5 @@
 [phases.setup]
-nixPkgs = ["ffmpeg"]
+nixPkgs = ["ffmpeg", "nss", "dbus", "atk", "at-spi2-atk", "cups", "mesa", "expat", "alsa-lib", "cairo", "pango", "xorg.libXcomposite", "xorg.libXdamage", "xorg.libXfixes", "xorg.libXrandr", "libxkbcommon"]
+
+[phases.build]
+cmds = ["npx remotion browser ensure"]
