@@ -18,4 +18,35 @@ function detectFond(script) {
     return 'camping';
 }
 
-module.exports = { FONDS_OUTDOOR, detectFond };
+// Diviser le script en 3 parties egales pour 3 sous-titres/scenes
+function diviserScript(script) {
+    let propre = script
+        .replace(/\*[^*]+\*/g, '')
+        .replace(/\([^)]+\)/g, '')
+        .trim();
+
+    let phrases = propre.split(/[.!?]+/).filter(p => p.trim().length > 5);
+
+    // Filet 1: le nettoyage a tout supprime (asterisques non-appairees) -> nettoyage plus doux
+    if (phrases.length === 0) {
+        propre = script.replace(/\*/g, '').trim();
+        phrases = propre.split(/[.!?]+/).filter(p => p.trim().length > 5);
+    }
+
+    // Filet 2: toujours rien -> on garde le script brut comme une seule partie
+    if (phrases.length === 0) {
+        phrases = [script.trim()];
+    }
+
+    const tiers = Math.ceil(phrases.length / 3);
+    const parties = [
+        phrases.slice(0, tiers).join('. ').trim(),
+        phrases.slice(tiers, tiers * 2).join('. ').trim(),
+        phrases.slice(tiers * 2).join('. ').trim()
+    ].filter(p => p.length > 0);
+
+    // Filet 3: garantie absolue de ne jamais renvoyer un tableau vide
+    return parties.length > 0 ? parties : [script.trim() || 'Ti-Guy explore le grand air.'];
+}
+
+module.exports = { FONDS_OUTDOOR, detectFond, diviserScript };
