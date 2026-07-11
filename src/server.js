@@ -52,13 +52,6 @@ app.get('/api/status', auth, (req, res) => {
     });
 });
 
-app.get('/api/check-ffmpeg', auth, (req, res) => {
-    const { exec } = require('child_process');
-    exec('which ffmpeg; find / -name ffmpeg 2>/dev/null | head -5; ls /nix/store | grep ffmpeg | head -3', (err, stdout, stderr) => {
-        res.json({ stdout, stderr, err: err?.message });
-    });
-});
-
 app.get('/api/scripts', auth, (req, res) => {
     res.json(getAllScripts());
 });
@@ -78,8 +71,7 @@ async function genererAvecPipeline(script) {
         console.log('[PIPELINE] Etape 2: Preparation des scenes...');
         updateScript(script.id, { statut: 'video_en_cours' });
 
-        const { diviserScript, detectFond } = require('./kling');
-        const { FONDS_OUTDOOR } = require('./fonds');
+        const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
         const avatarUrls = await getAvatarUrls();
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
