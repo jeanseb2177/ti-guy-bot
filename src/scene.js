@@ -60,4 +60,4 @@ async function composerScene(avatarUrl, backgroundUrl) {
         .toBuffer();
 }
 
-module.exports = { composerScene };
+module.exports = { composerScene, detourerFondBlanc, fetchBuffer };
