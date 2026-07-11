@@ -1,10 +1,10 @@
 const express = require('express');
 const path = require('path');
 const { generateConseilScript, generateRevueProduit, generateScriptCustom } = require('./generator');
-const { generateVideo: klingGenerateVideo, checkTaskStatus } = require('./kling');
 const { generateAudio, getVoices } = require('./elevenlabs');
-const { mergeAudioVideo, cleanupScript } = require('./ffmpeg');
-const { uploadVideo } = require('./cloudinary');
+const { renderTiGuyVideo } = require('./remotionRender');
+const { getAvatarUrls } = require('./avatars');
+const { uploadVideo, uploadAudio } = require('./cloudinary');
 const { saveScript, getAllScripts, updateScript, deleteScript, getScript } = require('./store');
 const { getConnectUrl, listIntegrations, publishVideo } = require('./postpeer');
 
@@ -65,35 +65,47 @@ app.get('/api/scripts', auth, (req, res) => {
 
 async function genererAvecPipeline(script) {
     try {
-        // Etape 1: Audio ElevenLabs
+        // Etape 1: Audio ElevenLabs + upload Cloudinary (pour que Remotion puisse le charger)
         console.log('[PIPELINE] Etape 1: Audio ElevenLabs...');
         const audio = await generateAudio(script.script);
-        updateScript(script.id, { audio_base64: audio.audio_base64, statut: 'audio_pret' });
+        const audioBuffer = Buffer.from(audio.audio_base64, 'base64');
+        const audioTempPath = `/tmp/tiguy_audio_${script.id}.mp3`;
+        require('fs').writeFileSync(audioTempPath, audioBuffer);
+        const audioUrl = await uploadAudio(audioTempPath, `audio_${script.id}`);
+        updateScript(script.id, { statut: 'audio_pret' });
 
-        // Etape 2: Generation sequentielle des clips Kling (attend chaque clip avant le suivant)
-        console.log('[PIPELINE] Etape 2: Generation clips Kling (sequentiel, avec attente)...');
+        // Etape 2: Preparer les 3 scenes (decor + avatar + sous-titre reel)
+        console.log('[PIPELINE] Etape 2: Preparation des scenes...');
         updateScript(script.id, { statut: 'video_en_cours' });
-        const kling = await klingGenerateVideo(script.script, script.scenes);
-        const videoUrls = kling.video_urls;
-        console.log(`[PIPELINE] ${videoUrls.length} clips Kling termines.`);
 
-        updateScript(script.id, { kling_video_urls: videoUrls, statut: 'fusion_en_cours' });
+        const { diviserScript, detectFond } = require('./kling');
+        const { FONDS_OUTDOOR } = require('./fonds');
+        const avatarUrls = await getAvatarUrls();
+        const fondNom = detectFond(script.script);
+        const fondUrl = FONDS_OUTDOOR[fondNom];
+        const sousTitres = diviserScript(script.script);
 
-        // Etape 4: FFmpeg concatene + fusionne audio
-        console.log('[PIPELINE] Etape 4: FFmpeg fusion...');
-        const currentScript = getScript(script.id);
-        const finalPath = await mergeAudioVideo(videoUrls, currentScript.audio_base64, script.id);
+        const scenes = sousTitres.map((texte, i) => ({
+            background: fondUrl,
+            avatar: avatarUrls[i % avatarUrls.length],
+            caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim()
+        }));
 
-        // Etape 5: Upload Cloudinary
-        console.log('[PIPELINE] Etape 5: Upload Cloudinary...');
-        const cloudinaryUrl = await uploadVideo(finalPath, `tiguy_${script.id}`);
+        // Etape 3: Rendu Remotion (compose decor + avatar + sous-titres + audio -> mp4 directement)
+        console.log('[PIPELINE] Etape 3: Rendu video Remotion...');
+        const outputPath = `/tmp/tiguy_${script.id}.mp4`;
+        await renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outputPath });
+
+        // Etape 4: Upload Cloudinary de la video finale
+        console.log('[PIPELINE] Etape 4: Upload Cloudinary...');
+        const cloudinaryUrl = await uploadVideo(outputPath, `tiguy_${script.id}`);
         updateScript(script.id, {
             video_url: cloudinaryUrl,
-            statut: 'video_prete',
-            audio_base64: null
+            statut: 'video_prete'
         });
 
-        cleanupScript(script.id);
+        try { require('fs').unlinkSync(outputPath); } catch (e) {}
+        try { require('fs').unlinkSync(audioTempPath); } catch (e) {}
 
         notifyTelegram(`🎬 <b>Vidéo Ti-Guy prête!</b>\n\n📝 ${script.titre}\n⏱️ ~30 secondes\n\n🔗 <a href="${cloudinaryUrl}">Voir la vidéo</a>\n\nApprouve dans le dashboard!\n\n<i>Ti-Guy Bot — Mon Camp de Base</i>`);
         console.log(`[PIPELINE] Succes! ${cloudinaryUrl}`);
