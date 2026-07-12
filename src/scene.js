@@ -35,15 +35,27 @@ async function fetchBuffer(urlOuChemin, tentative = 1) {
     }
 }
 
-// Rend transparents les pixels proches du blanc (fond des images de reference Ti-Guy)
-async function detourerFondBlanc(buffer, threshold = 235) {
+// Rend transparents les pixels proches du blanc, avec un DEGRADE (pas de coupure nette)
+// pour eviter le lisere blanc dur autour des contours/cheveux.
+async function detourerFondBlanc(buffer, seuilOpaque = 200, seuilTransparent = 248) {
     const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
     for (let i = 0; i < data.length; i += 4) {
-        if (data[i] >= threshold && data[i + 1] >= threshold && data[i + 2] >= threshold) {
-            data[i + 3] = 0; // alpha = transparent
+        const luminosite = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (luminosite >= seuilTransparent) {
+            data[i + 3] = 0; // totalement transparent
+        } else if (luminosite <= seuilOpaque) {
+            // garder l'alpha d'origine (totalement opaque)
+        } else {
+            // zone de transition: alpha degrade lineairement entre les deux seuils
+            const ratio = (luminosite - seuilOpaque) / (seuilTransparent - seuilOpaque);
+            data[i + 3] = Math.round(data[i + 3] * (1 - ratio));
         }
     }
-    return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer();
+    // Leger flou sur le canal alpha uniquement pour adoucir davantage les bords
+    return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+        .blur(0.6)
+        .png()
+        .toBuffer();
 }
 
 // Compose Ti-Guy (detoure) sur un vrai decor outdoor, format 9:16
