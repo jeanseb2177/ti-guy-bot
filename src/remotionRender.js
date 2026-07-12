@@ -20,17 +20,17 @@ function getBundleLocation() {
                     ...config.resolve,
                     fallback: {
                         ...(config.resolve && config.resolve.fallback),
-                        fs: false,
-                        path: false,
-                        os: false,
-                        crypto: false,
-                        child_process: false,
-                        net: false,
-                        tls: false,
-                        stream: false,
-                        zlib: false,
-                        http: false,
-                        https: false,
+                        fs: false, 'node:fs': false,
+                        path: false, 'node:path': false,
+                        os: false, 'node:os': false,
+                        crypto: false, 'node:crypto': false,
+                        child_process: false, 'node:child_process': false,
+                        net: false, 'node:net': false,
+                        tls: false, 'node:tls': false,
+                        stream: false, 'node:stream': false,
+                        zlib: false, 'node:zlib': false,
+                        http: false, 'node:http': false,
+                        https: false, 'node:https': false,
                         sharp: false
                     }
                 }
