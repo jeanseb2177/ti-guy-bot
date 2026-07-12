@@ -37,7 +37,7 @@ async function generateConseilScript(sujet = null) {
     
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 900,
+        max_tokens: 2000,
         system: TIGUY_PERSONA,
         messages: [{
             role: 'user',
@@ -86,7 +86,7 @@ async function generateRevueProduit(nomProduit = null) {
     
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 900,
+        max_tokens: 2000,
         system: TIGUY_PERSONA,
         messages: [{
             role: 'user',
@@ -133,7 +133,7 @@ Format de réponse (respecte exactement ces sections):
 async function generateScriptCustom(instructions) {
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
-        max_tokens: 900,
+        max_tokens: 2000,
         system: TIGUY_PERSONA,
         messages: [{
             role: 'user',
