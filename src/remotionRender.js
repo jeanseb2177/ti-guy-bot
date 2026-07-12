@@ -30,12 +30,9 @@ function getBundleLocation() {
                         stream: false,
                         zlib: false,
                         http: false,
-                        https: false
+                        https: false,
+                        sharp: false
                     }
-                },
-                externals: {
-                    ...(config.externals || {}),
-                    sharp: 'commonjs sharp'
                 }
             })
         });
