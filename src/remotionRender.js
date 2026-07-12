@@ -12,7 +12,22 @@ let bundleLocationPromise = null;
 function getBundleLocation() {
     if (!bundleLocationPromise) {
         console.log('[REMOTION] Bundle en cours (premiere fois seulement)...');
-        bundleLocationPromise = bundle({ entryPoint: path.join(__dirname, 'remotion/index.js') });
+        bundleLocationPromise = bundle({
+            entryPoint: path.join(__dirname, 'remotion/index.js'),
+            webpackOverride: (config) => ({
+                ...config,
+                resolve: {
+                    ...config.resolve,
+                    fallback: {
+                        ...(config.resolve && config.resolve.fallback),
+                        fs: false,
+                        path: false,
+                        os: false,
+                        crypto: false
+                    }
+                }
+            })
+        });
     }
     return bundleLocationPromise;
 }
