@@ -23,8 +23,19 @@ function getBundleLocation() {
                         fs: false,
                         path: false,
                         os: false,
-                        crypto: false
+                        crypto: false,
+                        child_process: false,
+                        net: false,
+                        tls: false,
+                        stream: false,
+                        zlib: false,
+                        http: false,
+                        https: false
                     }
+                },
+                externals: {
+                    ...(config.externals || {}),
+                    sharp: 'commonjs sharp'
                 }
             })
         });
