@@ -1,68 +1,75 @@
-const React = require('react');
-const { AbsoluteFill, Audio, Img, Sequence, interpolate, useCurrentFrame } = require('remotion');
+const sharp = require('sharp');
+const axios = require('axios');
+const fs = require('fs');
 
-// Une "scene" = un acte du mini-film (obstacle / astuce / victoire)
-function Scene({ background, avatar, caption, durationInFrames }) {
-    const frame = useCurrentFrame();
+const cacheImages = new Map();
 
-    // Effet Ken Burns: zoom + leger pan sur le decor pendant toute la duree de la scene
-    const scale = interpolate(frame, [0, durationInFrames], [1, 1.18], { extrapolateRight: 'clamp' });
-    const translateX = interpolate(frame, [0, durationInFrames], [0, -25], { extrapolateRight: 'clamp' });
+async function fetchBuffer(urlOuChemin, tentative = 1) {
+    if (cacheImages.has(urlOuChemin)) return cacheImages.get(urlOuChemin);
 
-    // Le texte du sous-titre apparait en fondu au debut de chaque scene
-    const captionOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: 'clamp' });
+    // Fichier local (chemin absolu, pas une URL http)
+    if (!urlOuChemin.startsWith('http')) {
+        const buffer = fs.readFileSync(urlOuChemin);
+        cacheImages.set(urlOuChemin, buffer);
+        return buffer;
+    }
 
-    return React.createElement(AbsoluteFill, { style: { backgroundColor: '#1B3328' } },
-        // Decor avec effet Ken Burns
-        React.createElement(AbsoluteFill, { style: { transform: `scale(${scale}) translateX(${translateX}px)` } },
-            React.createElement(Img, { src: background, style: { width: '100%', height: '100%', objectFit: 'cover' } })
-        ),
-        // Ti-Guy detoure, pose au premier plan
-        React.createElement(AbsoluteFill, { style: { justifyContent: 'flex-end', alignItems: 'center' } },
-            React.createElement(Img, { src: avatar, style: { height: '80%', objectFit: 'contain' } })
-        ),
-        // Bandeau sous-titre en bas, style "carnet de terrain"
-        React.createElement(AbsoluteFill, { style: { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 140 } },
-            React.createElement('div', {
-                style: {
-                    opacity: captionOpacity,
-                    background: 'rgba(18,36,25,0.88)',
-                    color: '#EDE6D6',
-                    fontFamily: 'Arial, sans-serif',
-                    fontWeight: 800,
-                    fontSize: 46,
-                    lineHeight: 1.3,
-                    padding: '22px 34px',
-                    borderRadius: 14,
-                    maxWidth: '86%',
-                    textAlign: 'center',
-                    border: '3px solid #D9662C'
-                }
-            }, caption)
-        )
-    );
+    try {
+        const res = await axios.get(urlOuChemin, {
+            responseType: 'arraybuffer',
+            timeout: 30000,
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36' }
+        });
+        const buffer = Buffer.from(res.data);
+        cacheImages.set(urlOuChemin, buffer);
+        return buffer;
+    } catch (error) {
+        if (error.response?.status === 429 && tentative <= 3) {
+            const attente = tentative * 4000;
+            console.log(`[SCENE] 429 sur ${urlOuChemin.substring(0, 50)}... nouvelle tentative dans ${attente / 1000}s (${tentative}/3)`);
+            await new Promise(r => setTimeout(r, attente));
+            return fetchBuffer(urlOuChemin, tentative + 1);
+        }
+        console.error(`[SCENE] Erreur telechargement ${urlOuChemin.substring(0, 60)}:`, error.response?.status || error.message);
+        throw error;
+    }
 }
 
-function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames }) {
-    let startFrame = 0;
-    const sequences = scenes.map((scene, i) => {
-        const duree = actDurationsInFrames[i];
-        const el = React.createElement(Sequence, { key: i, from: startFrame, durationInFrames: duree },
-            React.createElement(Scene, {
-                background: scene.background,
-                avatar: scene.avatar,
-                caption: scene.caption,
-                durationInFrames: duree
-            })
-        );
-        startFrame += duree;
-        return el;
-    });
-
-    return React.createElement(AbsoluteFill, null,
-        React.createElement(Audio, { src: audioUrl }),
-        ...sequences
-    );
+// Rend transparents les pixels proches du blanc, avec un DEGRADE (pas de coupure nette)
+// pour eviter le lisere blanc dur autour des contours/cheveux.
+async function detourerFondBlanc(buffer, seuilOpaque = 200, seuilTransparent = 248) {
+    const { data, info } = await sharp(buffer).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    for (let i = 0; i < data.length; i += 4) {
+        const luminosite = (data[i] + data[i + 1] + data[i + 2]) / 3;
+        if (luminosite >= seuilTransparent) {
+            data[i + 3] = 0; // totalement transparent
+        } else if (luminosite <= seuilOpaque) {
+            // garder l'alpha d'origine (totalement opaque)
+        } else {
+            // zone de transition: alpha degrade lineairement entre les deux seuils
+            const ratio = (luminosite - seuilOpaque) / (seuilTransparent - seuilOpaque);
+            data[i + 3] = Math.round(data[i + 3] * (1 - ratio));
+        }
+    }
+    // Leger flou sur le canal alpha uniquement pour adoucir davantage les bords
+    return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } })
+        .blur(0.6)
+        .png()
+        .toBuffer();
 }
 
-module.exports = { TiGuyVideo };
+// Compose Ti-Guy (detoure) sur un vrai decor outdoor, format 9:16
+async function composerScene(avatarUrl, backgroundUrl) {
+    const [avatarBuf, bgBuf] = await Promise.all([fetchBuffer(avatarUrl), fetchBuffer(backgroundUrl)]);
+
+    const cutout = await detourerFondBlanc(avatarBuf);
+    const fondRedimensionne = await sharp(bgBuf).resize(1080, 1920, { fit: 'cover' }).toBuffer();
+    const avatarRedimensionne = await sharp(cutout).resize({ height: 1550 }).toBuffer();
+
+    return sharp(fondRedimensionne)
+        .composite([{ input: avatarRedimensionne, gravity: 'south' }])
+        .png()
+        .toBuffer();
+}
+
+module.exports = { composerScene, detourerFondBlanc, fetchBuffer };
