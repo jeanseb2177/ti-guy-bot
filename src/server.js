@@ -52,6 +52,13 @@ app.get('/api/status', auth, (req, res) => {
     });
 });
 
+app.get('/api/check-ffmpeg', auth, (req, res) => {
+    const { exec } = require('child_process');
+    exec('which ffmpeg; find / -name ffmpeg 2>/dev/null | head -5; ls /nix/store | grep ffmpeg | head -3', (err, stdout, stderr) => {
+        res.json({ stdout, stderr, err: err?.message });
+    });
+});
+
 app.get('/api/scripts', auth, (req, res) => {
     res.json(getAllScripts());
 });
@@ -71,7 +78,8 @@ async function genererAvecPipeline(script) {
         console.log('[PIPELINE] Etape 2: Preparation des scenes...');
         updateScript(script.id, { statut: 'video_en_cours' });
 
-        const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
+        const { diviserScript, detectFond } = require('./kling');
+        const { FONDS_OUTDOOR } = require('./fonds');
         const avatarUrls = await getAvatarUrls();
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
@@ -105,7 +113,8 @@ async function genererAvecPipeline(script) {
     } catch (error) {
         console.error('[PIPELINE] Erreur:', error.message);
         updateScript(script.id, { statut: 'erreur_pipeline', erreur: error.message });
-        notifyTelegram(`❌ <b>Erreur pipeline Ti-Guy</b>\n\n${error.message}\n\n<i>Ti-Guy Bot</i>`);
+        const messageEchappe = String(error.message).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 500);
+        notifyTelegram(`❌ <b>Erreur pipeline Ti-Guy</b>\n\n${messageEchappe}\n\n<i>Ti-Guy Bot</i>`);
     }
 }
 
