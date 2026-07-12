@@ -78,8 +78,7 @@ async function genererAvecPipeline(script) {
         console.log('[PIPELINE] Etape 2: Preparation des scenes...');
         updateScript(script.id, { statut: 'video_en_cours' });
 
-        const { diviserScript, detectFond } = require('./kling');
-        const { FONDS_OUTDOOR } = require('./fonds');
+        const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
         const avatarUrls = await getAvatarUrls();
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
