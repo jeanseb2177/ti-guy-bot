@@ -13,9 +13,9 @@ function RemotionRoot() {
         defaultProps: {
             audioUrl: '',
             scenes: [
-                { background: '', avatar: '', caption: '' },
-                { background: '', avatar: '', caption: '' },
-                { background: '', avatar: '', caption: '' }
+                { background: '', animation: 'Fall_Flat.fbx', caption: '' },
+                { background: '', animation: 'Unarmed_Walk_Forward.fbx', caption: '' },
+                { background: '', animation: 'Silly_Dancing.fbx', caption: '' }
             ],
             actDurationsInFrames: [400, 400, 400],
             outroDurationInFrames: 90,

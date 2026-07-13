@@ -1,19 +1,14 @@
 const React = require('react');
 const { AbsoluteFill, Audio, Img, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } = require('remotion');
+const { SceneTiGuy3D } = require('./TiGuy3D');
 
 // Une "scene" = un acte du mini-film (obstacle / astuce / victoire)
-function Scene({ background, avatar, caption, durationInFrames }) {
+function Scene({ background, animation, caption, durationInFrames }) {
     const frame = useCurrentFrame();
 
     // Effet Ken Burns: zoom + leger pan sur le decor pendant toute la duree de la scene
     const scale = interpolate(frame, [0, durationInFrames], [1, 1.18], { extrapolateRight: 'clamp' });
     const translateX = interpolate(frame, [0, durationInFrames], [0, -25], { extrapolateRight: 'clamp' });
-
-    // Mouvement "idle" de Ti-Guy: leger balancement + respiration, en boucle continue,
-    // pour qu'il paraisse vivant plutot qu'une image figee collee sur le decor.
-    const respiration = 1 + Math.sin(frame / 18) * 0.012;       // zoom respiratoire tres subtil
-    const balancement = Math.sin(frame / 25) * 1.4;             // rotation +/- 1.4 degres
-    const bobVertical = Math.sin(frame / 22) * 6;                // monte/descend +/- 6px
 
     // Le texte du sous-titre apparait en fondu au debut de chaque scene
     const captionOpacity = interpolate(frame, [0, 15], [0, 1], { extrapolateRight: 'clamp' });
@@ -23,18 +18,8 @@ function Scene({ background, avatar, caption, durationInFrames }) {
         React.createElement(AbsoluteFill, { style: { transform: `scale(${scale}) translateX(${translateX}px)` } },
             React.createElement(Img, { src: background, style: { width: '100%', height: '100%', objectFit: 'cover' } })
         ),
-        // Ti-Guy detoure, anime (idle: balancement + respiration + bob vertical)
-        React.createElement(AbsoluteFill, { style: { justifyContent: 'flex-end', alignItems: 'center' } },
-            React.createElement(Img, {
-                src: avatar,
-                style: {
-                    height: '80%',
-                    objectFit: 'contain',
-                    transform: `translateY(${bobVertical}px) rotate(${balancement}deg) scale(${respiration})`,
-                    transformOrigin: 'bottom center'
-                }
-            })
-        ),
+        // Ti-Guy en 3D, vraiment anime (marche, tombe, danse, rit selon l'acte)
+        React.createElement(SceneTiGuy3D, { animationFile: animation }),
         // Bandeau sous-titre en bas, style "carnet de terrain"
         React.createElement(AbsoluteFill, { style: { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 140 } },
             React.createElement('div', {
@@ -104,7 +89,7 @@ function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFra
         const el = React.createElement(Sequence, { key: i, from: startFrame, durationInFrames: duree },
             React.createElement(Scene, {
                 background: scene.background,
-                avatar: scene.avatar,
+                animation: scene.animation,
                 caption: scene.caption,
                 durationInFrames: duree
             })
@@ -116,7 +101,7 @@ function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFra
     if (outroDurationInFrames > 0) {
         sequences.push(
             React.createElement(Sequence, { key: 'outro', from: startFrame, durationInFrames: outroDurationInFrames },
-                React.createElement(Outro, { avatar: outroAvatar || scenes[scenes.length - 1].avatar })
+                React.createElement(Outro, { avatar: outroAvatar })
             )
         );
     }

@@ -2,34 +2,23 @@ const path = require('path');
 const { detourerFondBlanc, fetchBuffer } = require('./scene');
 const { uploadImage } = require('./cloudinary');
 
-const TIGUY_AVATAR_3QUART  = path.join(__dirname, '../assets/tiguy_3quart.png');
-const TIGUY_AVATAR_COTE    = path.join(__dirname, '../assets/tiguy_cote.png');
-const TIGUY_AVATAR_FACE    = path.join(__dirname, '../assets/tiguy_face.png');
 const TIGUY_AVATAR_VICTOIRE = path.join(__dirname, '../assets/tiguy_victoire.png');
 
-const POSES_LOCALES = [TIGUY_AVATAR_FACE, TIGUY_AVATAR_3QUART, TIGUY_AVATAR_COTE];
-
-let urlsCache = null;
-
-async function detourerEtUploader(cheminLocal, publicId) {
-    const buffer = await fetchBuffer(cheminLocal);
-    const cutout = await detourerFondBlanc(buffer);
-    return uploadImage(cutout, publicId);
-}
+let urlCache = null;
 
 // Ne fait le detourage + upload qu'une seule fois par demarrage du serveur,
-// puis reutilise les URLs Cloudinary pour toutes les videos suivantes.
-async function getAvatarUrls() {
-    if (urlsCache) return urlsCache;
+// puis reutilise l'URL Cloudinary pour toutes les videos suivantes.
+// (Les scenes principales utilisent maintenant Ti-Guy en 3D anime — seule la pose
+// victoire, pour le carton de fin, reste une image 2D detouree.)
+async function getOutroAvatarUrl() {
+    if (urlCache) return urlCache;
 
-    console.log('[AVATARS] Preparation des poses Ti-Guy detourees (une seule fois)...');
-    const [poses, victoire] = await Promise.all([
-        Promise.all(POSES_LOCALES.map((cheminLocal, i) => detourerEtUploader(cheminLocal, `avatar_cutout_${i}`))),
-        detourerEtUploader(TIGUY_AVATAR_VICTOIRE, 'avatar_cutout_victoire')
-    ]);
-    urlsCache = { poses, victoire };
-    console.log('[AVATARS] Pretes:', urlsCache);
-    return urlsCache;
+    console.log('[AVATARS] Preparation de la pose victoire Ti-Guy detouree (une seule fois)...');
+    const buffer = await fetchBuffer(TIGUY_AVATAR_VICTOIRE);
+    const cutout = await detourerFondBlanc(buffer);
+    urlCache = await uploadImage(cutout, 'avatar_cutout_victoire');
+    console.log('[AVATARS] Prete:', urlCache);
+    return urlCache;
 }
 
-module.exports = { getAvatarUrls };
+module.exports = { getOutroAvatarUrl };

@@ -3,7 +3,7 @@ const path = require('path');
 const { generateConseilScript, generateRevueProduit, generateScriptCustom } = require('./generator');
 const { generateAudio, getVoices } = require('./elevenlabs');
 const { renderTiGuyVideo } = require('./remotionRender');
-const { getAvatarUrls } = require('./avatars');
+const { getOutroAvatarUrl } = require('./avatars');
 const { uploadVideo, uploadAudio } = require('./cloudinary');
 const { saveScript, getAllScripts, updateScript, deleteScript, getScript } = require('./store');
 const { getConnectUrl, listIntegrations, publishVideo } = require('./postpeer');
@@ -74,26 +74,30 @@ async function genererAvecPipeline(script) {
         const audioUrl = await uploadAudio(audioTempPath, `audio_${script.id}`);
         updateScript(script.id, { statut: 'audio_pret' });
 
-        // Etape 2: Preparer les 3 scenes (decor + avatar + sous-titre reel)
+        // Etape 2: Preparer les 3 scenes (decor + animation 3D + sous-titre reel)
         console.log('[PIPELINE] Etape 2: Preparation des scenes...');
         updateScript(script.id, { statut: 'video_en_cours' });
 
         const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
-        const avatarUrls = await getAvatarUrls();
+        const outroAvatar = await getOutroAvatarUrl();
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
         const sousTitres = diviserScript(script.script);
 
+        // Chaque acte du scenario a son animation Mixamo dediee:
+        // Acte 1 (obstacle) -> tombe/trebuche, Acte 2 (astuce en action) -> marche/agit, Acte 3 (victoire) -> celebre
+        const ANIMATIONS_PAR_ACTE = ['Fall_Flat.fbx', 'Unarmed_Walk_Forward.fbx', 'Silly_Dancing.fbx'];
+
         const scenes = sousTitres.map((texte, i) => ({
             background: fondUrl,
-            avatar: avatarUrls.poses[i % avatarUrls.poses.length],
+            animation: ANIMATIONS_PAR_ACTE[i % ANIMATIONS_PAR_ACTE.length],
             caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim()
         }));
 
         // Etape 3: Rendu Remotion (compose decor + avatar + sous-titres + audio -> mp4 directement)
         console.log('[PIPELINE] Etape 3: Rendu video Remotion...');
         const outputPath = `/tmp/tiguy_${script.id}.mp4`;
-        await renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar: avatarUrls.victoire, outputPath });
+        await renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar, outputPath });
 
         // Etape 4: Upload Cloudinary de la video finale
         console.log('[PIPELINE] Etape 4: Upload Cloudinary...');

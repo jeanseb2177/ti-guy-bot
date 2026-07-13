@@ -15,6 +15,7 @@ function getBundleLocation() {
         console.log('[REMOTION] Bundle en cours (premiere fois seulement)...');
         bundleLocationPromise = bundle({
             entryPoint: path.join(__dirname, 'remotion/index.js'),
+            publicDir: path.join(__dirname, 'remotion/public'),
             webpackOverride: (config) => ({
                 ...config,
                 resolve: {
