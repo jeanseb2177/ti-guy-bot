@@ -8,7 +8,8 @@ const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io/v1';
 const TIGUY_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || null;
 
 // Voix francaise masculine de fallback si pas de clone
-const FALLBACK_VOICE_ID = 'onwK4e9ZLuTAKqWW03F9'; // Daniel - voix FR masculine
+// (a verifier/reecouter sur elevenlabs.io/voice-library si le rendu ne convient pas)
+const FALLBACK_VOICE_ID = 'sFdj2KJkJptrv9nt0o2Q'; // Sam - voix FR jeune/grave, sarcastique
 
 async function generateAudio(script) {
     try {
@@ -31,8 +32,9 @@ async function generateAudio(script) {
                 voice_settings: {
                     stability: 0.35,
                     similarity_boost: 0.85,
-                    style: 0.65,
-                    use_speaker_boost: true
+                    style: 0.7,
+                    use_speaker_boost: true,
+                    speed: 1.1
                 }
             },
             {
