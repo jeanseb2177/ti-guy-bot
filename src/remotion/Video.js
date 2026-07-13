@@ -97,7 +97,7 @@ function Outro({ avatar }) {
     );
 }
 
-function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFrames }) {
+function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFrames, outroAvatar }) {
     let startFrame = 0;
     const sequences = scenes.map((scene, i) => {
         const duree = actDurationsInFrames[i];
@@ -116,7 +116,7 @@ function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFra
     if (outroDurationInFrames > 0) {
         sequences.push(
             React.createElement(Sequence, { key: 'outro', from: startFrame, durationInFrames: outroDurationInFrames },
-                React.createElement(Outro, { avatar: scenes[scenes.length - 1].avatar })
+                React.createElement(Outro, { avatar: outroAvatar || scenes[scenes.length - 1].avatar })
             )
         );
     }

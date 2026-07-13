@@ -86,14 +86,14 @@ async function genererAvecPipeline(script) {
 
         const scenes = sousTitres.map((texte, i) => ({
             background: fondUrl,
-            avatar: avatarUrls[i % avatarUrls.length],
+            avatar: avatarUrls.poses[i % avatarUrls.poses.length],
             caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim()
         }));
 
         // Etape 3: Rendu Remotion (compose decor + avatar + sous-titres + audio -> mp4 directement)
         console.log('[PIPELINE] Etape 3: Rendu video Remotion...');
         const outputPath = `/tmp/tiguy_${script.id}.mp4`;
-        await renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outputPath });
+        await renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar: avatarUrls.victoire, outputPath });
 
         // Etape 4: Upload Cloudinary de la video finale
         console.log('[PIPELINE] Etape 4: Upload Cloudinary...');

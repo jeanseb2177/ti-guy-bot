@@ -54,7 +54,7 @@ function calculerDureesActes(audioBuffer, nbActes) {
     };
 }
 
-async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outputPath }) {
+async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar, outputPath }) {
     const location = await getBundleLocation();
 
     const { actDurationsInFrames, totalFrames: totalFramesActes } = calculerDureesActes(audioBuffer, scenes.length);
@@ -62,7 +62,7 @@ async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outputPath }) {
     const outroDurationInFrames = Math.round(DUREE_OUTRO_SEC * FPS);
     const totalFrames = totalFramesActes + outroDurationInFrames;
 
-    const inputProps = { audioUrl, scenes, actDurationsInFrames, outroDurationInFrames };
+    const inputProps = { audioUrl, scenes, actDurationsInFrames, outroDurationInFrames, outroAvatar: outroAvatar || scenes[scenes.length - 1].avatar };
 
     console.log(`[REMOTION] Rendu: ${scenes.length} actes + outro, ${totalFrames} frames total (~${(totalFrames / FPS).toFixed(1)}s)`);
 

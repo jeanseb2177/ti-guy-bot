@@ -18,7 +18,8 @@ function RemotionRoot() {
                 { background: '', avatar: '', caption: '' }
             ],
             actDurationsInFrames: [400, 400, 400],
-            outroDurationInFrames: 90
+            outroDurationInFrames: 90,
+            outroAvatar: ''
         }
     });
 }
