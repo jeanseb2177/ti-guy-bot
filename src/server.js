@@ -79,18 +79,17 @@ async function genererAvecPipeline(script) {
         updateScript(script.id, { statut: 'video_en_cours' });
 
         const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
+        const { detecterAnimation } = require('./animations');
         const outroAvatar = await getOutroAvatarUrl();
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
         const sousTitres = diviserScript(script.script);
 
-        // Chaque acte du scenario a son animation Mixamo dediee:
-        // Acte 1 (obstacle) -> tombe/trebuche, Acte 2 (astuce en action) -> marche/agit, Acte 3 (victoire) -> celebre
-        const ANIMATIONS_PAR_ACTE = ['Fall_Flat.fbx', 'Unarmed_Walk_Forward.fbx', 'Silly_Dancing.fbx'];
-
+        // Anime chaque acte selon sa description visuelle reelle (generee par Claude avec le
+        // script) plutot qu'un mapping fixe identique a chaque video.
         const scenes = sousTitres.map((texte, i) => ({
             background: fondUrl,
-            animation: ANIMATIONS_PAR_ACTE[i % ANIMATIONS_PAR_ACTE.length],
+            animation: detecterAnimation(script.scenes && script.scenes[i], i),
             caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim()
         }));
 
