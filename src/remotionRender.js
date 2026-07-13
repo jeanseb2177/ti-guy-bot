@@ -67,10 +67,16 @@ async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar, ou
 
     console.log(`[REMOTION] Rendu: ${scenes.length} actes + outro, ${totalFrames} frames total (~${(totalFrames / FPS).toFixed(1)}s)`);
 
+    // Three.js (Ti-Guy en 3D) ne rend pas correctement avec le renderer OpenGL par defaut
+    // en rendu serveur/headless — Remotion recommande explicitement 'angle'. Sans ca, le
+    // contexte WebGL peut planter ("Context Lost") au milieu du rendu.
+    const chromiumOptions = { gl: 'angle' };
+
     const composition = await selectComposition({
         serveUrl: location,
         id: 'TiGuyVideo',
-        inputProps
+        inputProps,
+        chromiumOptions
     });
 
     await renderMedia({
@@ -79,7 +85,11 @@ async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar, ou
         codec: 'h264',
         outputLocation: outputPath,
         inputProps,
-        timeoutInMilliseconds: 300000
+        chromiumOptions,
+        // Concurrence limitee: chaque onglet charge une scene 3D + un FBX de ~26Mo, plusieurs
+        // en parallele epuisent la memoire GPU et provoquent des "Context Lost".
+        concurrency: 2,
+        timeoutInMilliseconds: 600000
     });
 
     console.log('[REMOTION] Rendu termine:', outputPath);
