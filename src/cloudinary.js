@@ -10,8 +10,9 @@ async function uploadVideo(filePath, publicId) {
     try {
         const crypto = require('crypto');
         const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'tiguy-bot';
         const signature = crypto.createHash('sha1')
-            .update(`public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
+            .update(`folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
             .digest('hex');
 
         const form = new FormData();
@@ -21,7 +22,7 @@ async function uploadVideo(filePath, publicId) {
         form.append('signature', signature);
         form.append('public_id', publicId);
         form.append('resource_type', 'video');
-        form.append('folder', 'tiguy-bot');
+        form.append('folder', folder);
 
         const response = await axios.post(
             `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,
@@ -41,8 +42,9 @@ async function uploadAudio(filePath, publicId) {
     try {
         const crypto = require('crypto');
         const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'tiguy-bot/audio';
         const signature = crypto.createHash('sha1')
-            .update(`public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
+            .update(`folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
             .digest('hex');
 
         const form = new FormData();
@@ -52,7 +54,7 @@ async function uploadAudio(filePath, publicId) {
         form.append('signature', signature);
         form.append('public_id', publicId);
         form.append('resource_type', 'video');
-        form.append('folder', 'tiguy-bot/audio');
+        form.append('folder', folder);
 
         const response = await axios.post(
             `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`,
@@ -67,4 +69,33 @@ async function uploadAudio(filePath, publicId) {
     }
 }
 
-module.exports = { uploadVideo, uploadAudio };
+async function uploadImage(buffer, publicId) {
+    try {
+        const crypto = require('crypto');
+        const timestamp = Math.floor(Date.now() / 1000);
+        const folder = 'tiguy-bot/scenes';
+        const signature = crypto.createHash('sha1')
+            .update(`folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${API_SECRET}`)
+            .digest('hex');
+
+        const form = new FormData();
+        form.append('file', buffer, { filename: `${publicId}.png`, contentType: 'image/png' });
+        form.append('api_key', API_KEY);
+        form.append('timestamp', timestamp);
+        form.append('signature', signature);
+        form.append('public_id', publicId);
+        form.append('folder', folder);
+
+        const response = await axios.post(
+            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+            form,
+            { headers: form.getHeaders(), timeout: 60000 }
+        );
+        return response.data.secure_url;
+    } catch (error) {
+        console.error('[CLOUDINARY] Erreur upload image:', error.response?.data || error.message);
+        throw error;
+    }
+}
+
+module.exports = { uploadVideo, uploadAudio, uploadImage };

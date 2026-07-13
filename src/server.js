@@ -1,11 +1,12 @@
 const express = require('express');
 const path = require('path');
 const { generateConseilScript, generateRevueProduit, generateScriptCustom } = require('./generator');
-const { generateVideo: klingGenerateVideo, checkTaskStatus } = require('./kling');
 const { generateAudio, getVoices } = require('./elevenlabs');
-const { mergeAudioVideo, cleanupScript } = require('./ffmpeg');
-const { uploadVideo } = require('./cloudinary');
+const { renderTiGuyVideo } = require('./remotionRender');
+const { getAvatarUrls } = require('./avatars');
+const { uploadVideo, uploadAudio } = require('./cloudinary');
 const { saveScript, getAllScripts, updateScript, deleteScript, getScript } = require('./store');
+const { getConnectUrl, listIntegrations, publishVideo } = require('./postpeer');
 
 const app = express();
 app.use(express.json());
@@ -64,50 +65,46 @@ app.get('/api/scripts', auth, (req, res) => {
 
 async function genererAvecPipeline(script) {
     try {
-        // Etape 1: Audio ElevenLabs
+        // Etape 1: Audio ElevenLabs + upload Cloudinary (pour que Remotion puisse le charger)
         console.log('[PIPELINE] Etape 1: Audio ElevenLabs...');
         const audio = await generateAudio(script.script);
-        updateScript(script.id, { audio_base64: audio.audio_base64, statut: 'audio_pret' });
+        const audioBuffer = Buffer.from(audio.audio_base64, 'base64');
+        const audioTempPath = `/tmp/tiguy_audio_${script.id}.mp3`;
+        require('fs').writeFileSync(audioTempPath, audioBuffer);
+        const audioUrl = await uploadAudio(audioTempPath, `audio_${script.id}`);
+        updateScript(script.id, { statut: 'audio_pret' });
 
-        // Etape 2: 3 clips Kling en parallele
-        console.log('[PIPELINE] Etape 2: Generation 3 clips Kling...');
-        const kling = await klingGenerateVideo(script.script);
-        updateScript(script.id, { kling_task_ids: kling.task_ids, statut: 'video_en_cours' });
+        // Etape 2: Preparer les 3 scenes (decor + avatar + sous-titre reel)
+        console.log('[PIPELINE] Etape 2: Preparation des scenes...');
+        updateScript(script.id, { statut: 'video_en_cours' });
 
-        // Etape 3: Attendre tous les clips (polling 15 sec, max 15 min)
-        console.log('[PIPELINE] Etape 3: Attente clips Kling...');
-        const videoUrls = [];
-        for (const taskId of kling.task_ids) {
-            let videoUrl = null;
-            for (let i = 0; i < 60; i++) {
-                await new Promise(r => setTimeout(r, 15000));
-                const status = await checkTaskStatus(taskId);
-                console.log(`[PIPELINE] Task ${taskId}: ${status.status} (${i+1}/60)`);
-                if (status.video_url) { videoUrl = status.video_url; break; }
-                if (status.status === 'failed') throw new Error(`Clip Kling echoue: ${taskId}`);
-            }
-            if (!videoUrl) throw new Error(`Timeout clip: ${taskId}`);
-            videoUrls.push(videoUrl);
-            console.log(`[PIPELINE] Clip pret: ${videoUrl.substring(0, 60)}...`);
-        }
+        const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
+        const avatarUrls = await getAvatarUrls();
+        const fondNom = detectFond(script.script);
+        const fondUrl = FONDS_OUTDOOR[fondNom];
+        const sousTitres = diviserScript(script.script);
 
-        updateScript(script.id, { kling_video_urls: videoUrls, statut: 'fusion_en_cours' });
+        const scenes = sousTitres.map((texte, i) => ({
+            background: fondUrl,
+            avatar: avatarUrls[i % avatarUrls.length],
+            caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim()
+        }));
 
-        // Etape 4: FFmpeg concatene + fusionne audio
-        console.log('[PIPELINE] Etape 4: FFmpeg fusion...');
-        const currentScript = getScript(script.id);
-        const finalPath = await mergeAudioVideo(videoUrls, currentScript.audio_base64, script.id);
+        // Etape 3: Rendu Remotion (compose decor + avatar + sous-titres + audio -> mp4 directement)
+        console.log('[PIPELINE] Etape 3: Rendu video Remotion...');
+        const outputPath = `/tmp/tiguy_${script.id}.mp4`;
+        await renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outputPath });
 
-        // Etape 5: Upload Cloudinary
-        console.log('[PIPELINE] Etape 5: Upload Cloudinary...');
-        const cloudinaryUrl = await uploadVideo(finalPath, `tiguy_${script.id}`);
+        // Etape 4: Upload Cloudinary de la video finale
+        console.log('[PIPELINE] Etape 4: Upload Cloudinary...');
+        const cloudinaryUrl = await uploadVideo(outputPath, `tiguy_${script.id}`);
         updateScript(script.id, {
             video_url: cloudinaryUrl,
-            statut: 'video_prete',
-            audio_base64: null
+            statut: 'video_prete'
         });
 
-        cleanupScript(script.id);
+        try { require('fs').unlinkSync(outputPath); } catch (e) {}
+        try { require('fs').unlinkSync(audioTempPath); } catch (e) {}
 
         notifyTelegram(`🎬 <b>Vidéo Ti-Guy prête!</b>\n\n📝 ${script.titre}\n⏱️ ~30 secondes\n\n🔗 <a href="${cloudinaryUrl}">Voir la vidéo</a>\n\nApprouve dans le dashboard!\n\n<i>Ti-Guy Bot — Mon Camp de Base</i>`);
         console.log(`[PIPELINE] Succes! ${cloudinaryUrl}`);
@@ -115,7 +112,8 @@ async function genererAvecPipeline(script) {
     } catch (error) {
         console.error('[PIPELINE] Erreur:', error.message);
         updateScript(script.id, { statut: 'erreur_pipeline', erreur: error.message });
-        notifyTelegram(`❌ <b>Erreur pipeline Ti-Guy</b>\n\n${error.message}\n\n<i>Ti-Guy Bot</i>`);
+        const messageEchappe = String(error.message).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').substring(0, 500);
+        notifyTelegram(`❌ <b>Erreur pipeline Ti-Guy</b>\n\n${messageEchappe}\n\n<i>Ti-Guy Bot</i>`);
     }
 }
 
@@ -131,6 +129,7 @@ app.post('/api/generate/conseil', auth, async (req, res) => {
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -144,6 +143,7 @@ app.post('/api/generate/revue', auth, async (req, res) => {
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -157,6 +157,7 @@ app.post('/api/generate/custom', auth, async (req, res) => {
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -186,6 +187,7 @@ app.post('/api/scripts/:id/regenerer', auth, async (req, res) => {
         genererAvecPipeline(nouveau).catch(e => console.error('[API] Erreur regen:', e.message));
         res.json(nouveau);
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -195,10 +197,55 @@ app.delete('/api/scripts/:id', auth, (req, res) => {
     res.json({ success: true });
 });
 
-app.post('/api/scripts/:id/publier', auth, (req, res) => {
-    const script = updateScript(req.params.id, { statut: 'publie', date_publication: new Date().toISOString() });
+// Etape 1 (une seule fois par plateforme): obtenir le lien d'autorisation TikTok/Instagram
+app.get('/api/postpeer/connect/:platform', auth, async (req, res) => {
+    try {
+        const data = await getConnectUrl(req.params.platform);
+        res.json(data);
+    } catch (error) {
+        console.error('[API] Erreur:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Voir les comptes deja connectes (et leurs accountId a utiliser dans .env)
+app.get('/api/postpeer/integrations', auth, async (req, res) => {
+    try {
+        const data = await listIntegrations();
+        res.json(data);
+    } catch (error) {
+        console.error('[API] Erreur:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+app.post('/api/scripts/:id/publier', auth, async (req, res) => {
+    const script = getScript(req.params.id);
     if (!script) return res.status(404).json({ error: 'Script non trouve' });
-    res.json(script);
+
+    const accountsEnv = process.env.POSTPEER_ACCOUNTS; // ex: tiktok:acc_xxx,instagram:acc_yyy
+    if (!script.video_url || !accountsEnv) {
+        // Fallback: pas de video ou pas de comptes connectes -> on marque juste publie manuellement
+        const updated = updateScript(req.params.id, { statut: 'publie', date_publication: new Date().toISOString() });
+        return res.json(updated);
+    }
+
+    try {
+        const accounts = accountsEnv.split(',').map(pair => {
+            const [platform, accountId] = pair.split(':');
+            return { platform, accountId };
+        });
+        const caption = `${script.titre}\n\n#${script.hashtags.replace(/,\s*/g, ' #')}`;
+        const result = await publishVideo(script.video_url, caption, accounts);
+        const updated = updateScript(req.params.id, {
+            statut: 'publie',
+            date_publication: new Date().toISOString(),
+            postpeer_result: result.platforms
+        });
+        res.json(updated);
+    } catch (error) {
+        res.status(500).json({ error: 'Publication PostPeer echouee: ' + error.message });
+    }
 });
 
 app.get('/api/scripts/:id/video-status', auth, async (req, res) => {
@@ -212,6 +259,7 @@ app.get('/api/voices', auth, async (req, res) => {
         const voices = await getVoices();
         res.json(voices.map(v => ({ id: v.voice_id, name: v.name })));
     } catch (error) {
+        console.error('[API] Erreur:', error);
         res.status(500).json({ error: error.message });
     }
 });

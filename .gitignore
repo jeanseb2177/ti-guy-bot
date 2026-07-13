@@ -1,0 +1,21 @@
+# Ce depot est a la racine du Desktop (fichiers personnels autour) :
+# on ignore TOUT par defaut, puis on autorise explicitement les fichiers du projet.
+*
+
+!/.gitignore
+!/README.md
+!/package.json
+!/package-lock.json
+!/nixpacks.toml
+!/Dockerfile
+!/.env.example
+
+!/src/
+!/src/**
+
+!/public/
+!/public/**
+
+!/assets/
+!/assets/**
+/assets/.claude/
