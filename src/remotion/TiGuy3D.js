@@ -2,6 +2,7 @@ const React = require('react');
 const { useRef, useEffect, useState } = require('react');
 const { useCurrentFrame, useVideoConfig, staticFile, continueRender, delayRender } = require('remotion');
 const { ThreeCanvas } = require('@remotion/three');
+const { useThree } = require('@react-three/fiber');
 const THREE = require('three');
 const { FBXLoader } = require('three/examples/jsm/loaders/FBXLoader.js');
 
@@ -9,8 +10,8 @@ const { FBXLoader } = require('three/examples/jsm/loaders/FBXLoader.js');
 const cacheFBX = {};
 
 // Animations qui representent un geste ponctuel (pas un mouvement cyclique comme marcher/danser):
-// jouees en boucle, elles donnent l'impression que le personnage "bug" en repetant l'action.
-// On les joue une seule fois puis on fige la derniere pose pour le reste de la scene.
+// jouees en boucle rapide ca "bug" (le geste se repete plusieurs fois pendant la scene). On les
+// etale plutot sur la scene entiere: le geste se joue une seule fois, au ralenti, du debut a la fin.
 const ANIMATIONS_UNE_FOIS = new Set([
     'Fall_Flat.fbx',
     'Wiping_Sweat.fbx',
@@ -21,6 +22,9 @@ const ANIMATIONS_UNE_FOIS = new Set([
     'Carrying.fbx',
     'Taking_Item.fbx'
 ]);
+
+const CAMERA_FOV = 32;
+const MARGE_CADRAGE = 1.3; // marge autour du personnage pour ne pas coller les bords
 
 function chargerFBX(url) {
     if (cacheFBX[url]) return cacheFBX[url];
@@ -33,8 +37,12 @@ function chargerFBX(url) {
 function TiGuy3D({ animationFile, durationInFrames }) {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
+    const { camera, size } = useThree();
     const [scene, setScene] = useState(null);
     const mixerRef = useRef(null);
+    const actionRef = useRef(null);
+    const clipDureeRef = useRef(0);
+    const uneFoisRef = useRef(false);
     const [handle] = useState(() => delayRender('Chargement animation Ti-Guy 3D'));
 
     useEffect(() => {
@@ -48,20 +56,38 @@ function TiGuy3D({ animationFile, durationInFrames }) {
             if (fbx.animations && fbx.animations.length > 0) {
                 const clip = fbx.animations[0];
                 const action = mixer.clipAction(clip);
-                if (ANIMATIONS_UNE_FOIS.has(animationFile)) {
-                    // Ces clips Mixamo sont souvent un aller-retour complet (ex: debout -> accroupi ->
-                    // debout). En boucle rapide ca "bug" (le geste se repete plusieurs fois pendant la
-                    // scene) ; fige a la derniere frame retombe souvent juste sur "debout" (comme si le
-                    // geste n'avait jamais eu lieu). On ralentit plutot le clip pour qu'il dure exactement
-                    // la scene entiere: le geste se joue une seule fois, au ralenti, du debut a la fin.
-                    const sceneDurationSec = durationInFrames / fps;
-                    if (clip.duration > 0 && sceneDurationSec > 0) {
-                        action.setEffectiveTimeScale(clip.duration / sceneDurationSec);
-                    }
-                    action.setLoop(THREE.LoopOnce, 1);
-                    action.clampWhenFinished = true;
-                }
                 action.play();
+                action.paused = true;
+                actionRef.current = action;
+                clipDureeRef.current = clip.duration;
+                uneFoisRef.current = ANIMATIONS_UNE_FOIS.has(animationFile);
+
+                // Calibre la camera une seule fois par scene: on echantillonne toute la duree
+                // de l'animation (pas seulement la pose de depart) pour trouver un cadrage qui
+                // garde Ti-Guy dans le champ du debut a la fin — meme quand il tombe, s'agenouille
+                // ou etend les bras — plutot qu'un cadrage fixe calibre sur une seule pose.
+                const boiteGlobale = new THREE.Box3();
+                const nbEchantillons = 20;
+                for (let i = 0; i <= nbEchantillons; i++) {
+                    action.time = (i / nbEchantillons) * clip.duration;
+                    mixer.update(0);
+                    boiteGlobale.union(new THREE.Box3().setFromObject(fbx));
+                }
+                action.time = 0;
+                mixer.update(0);
+
+                const taille = boiteGlobale.getSize(new THREE.Vector3());
+                const centre = boiteGlobale.getCenter(new THREE.Vector3());
+                const fovRad = (CAMERA_FOV * Math.PI) / 180;
+                const ratio = size && size.width && size.height ? size.width / size.height : 1080 / 1920;
+                const distancePourHauteur = (taille.y * MARGE_CADRAGE) / (2 * Math.tan(fovRad / 2));
+                const fovHorizontalRad = 2 * Math.atan(Math.tan(fovRad / 2) * ratio);
+                const distancePourLargeur = (taille.x * MARGE_CADRAGE) / (2 * Math.tan(fovHorizontalRad / 2));
+                const distance = Math.max(distancePourHauteur, distancePourLargeur, 1.5);
+
+                camera.position.set(centre.x, centre.y, centre.z + distance);
+                camera.lookAt(centre);
+                camera.updateProjectionMatrix();
             }
             mixerRef.current = mixer;
             setScene(fbx);
@@ -73,9 +99,20 @@ function TiGuy3D({ animationFile, durationInFrames }) {
         return () => { annule = true; };
     }, [animationFile]);
 
-    // Positionner l'animation au bon instant (frame par frame, pas de requestAnimationFrame)
-    if (mixerRef.current) {
-        mixerRef.current.setTime(frame / fps);
+    // Calcule directement la position (en secondes) dans le clip pour cette frame video, et
+    // demande au mixer d'appliquer exactement cette pose — deterministe, aucun etat cache.
+    if (mixerRef.current && actionRef.current && clipDureeRef.current > 0) {
+        const tSec = frame / fps;
+        let clipTime;
+        if (uneFoisRef.current) {
+            const sceneDureeSec = durationInFrames / fps;
+            const progression = sceneDureeSec > 0 ? Math.min(1, tSec / sceneDureeSec) : 1;
+            clipTime = progression * clipDureeRef.current;
+        } else {
+            clipTime = tSec % clipDureeRef.current;
+        }
+        actionRef.current.time = clipTime;
+        mixerRef.current.update(0);
     }
 
     if (!scene) return null;
@@ -88,9 +125,7 @@ function SceneTiGuy3D({ animationFile, durationInFrames }) {
             width: 1080,
             height: 1920,
             style: { position: 'absolute', top: 0, left: 0 },
-            // Cadrage plan rapproche (plutot que le plan large/lointain par defaut de R3F):
-            // objectif plus etroit (moins de distorsion) et camera plus proche.
-            camera: { position: [0, 0, 3.2], fov: 32 }
+            camera: { fov: CAMERA_FOV }
         },
         React.createElement('ambientLight', { intensity: 0.8 }),
         React.createElement('directionalLight', { position: [2, 4, 3], intensity: 1.1 }),
