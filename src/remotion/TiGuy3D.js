@@ -24,7 +24,8 @@ const ANIMATIONS_UNE_FOIS = new Set([
 ]);
 
 const CAMERA_FOV = 32;
-const MARGE_CADRAGE = 1.3; // marge autour du personnage pour ne pas coller les bords
+const MARGE_LARGEUR = 1.3; // marge horizontale pour ne pas coller les bords
+const SOL_Y = -1.05; // niveau du sol (position de base du personnage, pieds au repos)
 
 function chargerFBX(url) {
     if (cacheFBX[url]) return cacheFBX[url];
@@ -76,17 +77,28 @@ function TiGuy3D({ animationFile, durationInFrames }) {
                 action.time = 0;
                 mixer.update(0);
 
-                const taille = boiteGlobale.getSize(new THREE.Vector3());
+                // Cadrage ancre au sol plutot que centre sur la boite englobante: sans ca,
+                // Ti-Guy "flotte" au milieu de l'ecran sans jamais toucher le bas du cadre.
+                // On garde le niveau du sol (SOL_Y) fixe pres du bas de l'image, et on cadre
+                // vers le haut jusqu'au point le plus haut atteint pendant l'animation.
                 const centre = boiteGlobale.getCenter(new THREE.Vector3());
+                const hautY = boiteGlobale.max.y;
+                const etendueVerticale = Math.max(hautY - SOL_Y, 0.5);
+                const margeBas = etendueVerticale * 0.10;
+                const margeHaut = etendueVerticale * 0.18;
+                const demiHauteurMonde = (etendueVerticale + margeBas + margeHaut) / 2;
+                const centreVertical = SOL_Y - margeBas + demiHauteurMonde;
+
                 const fovRad = (CAMERA_FOV * Math.PI) / 180;
                 const ratio = size && size.width && size.height ? size.width / size.height : 1080 / 1920;
-                const distancePourHauteur = (taille.y * MARGE_CADRAGE) / (2 * Math.tan(fovRad / 2));
+                const distancePourHauteur = demiHauteurMonde / Math.tan(fovRad / 2);
+                const largeur = boiteGlobale.max.x - boiteGlobale.min.x;
                 const fovHorizontalRad = 2 * Math.atan(Math.tan(fovRad / 2) * ratio);
-                const distancePourLargeur = (taille.x * MARGE_CADRAGE) / (2 * Math.tan(fovHorizontalRad / 2));
+                const distancePourLargeur = (largeur * MARGE_LARGEUR) / (2 * Math.tan(fovHorizontalRad / 2));
                 const distance = Math.max(distancePourHauteur, distancePourLargeur, 1.5);
 
-                camera.position.set(centre.x, centre.y, centre.z + distance);
-                camera.lookAt(centre);
+                camera.position.set(centre.x, centreVertical, centre.z + distance);
+                camera.lookAt(centre.x, centreVertical, centre.z);
                 camera.updateProjectionMatrix();
             }
             mixerRef.current = mixer;
