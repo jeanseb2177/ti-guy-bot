@@ -67,10 +67,11 @@ async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar, ou
 
     console.log(`[REMOTION] Rendu: ${scenes.length} actes + outro, ${totalFrames} frames total (~${(totalFrames / FPS).toFixed(1)}s)`);
 
-    // Three.js (Ti-Guy en 3D) ne rend pas correctement avec le renderer OpenGL par defaut
-    // en rendu serveur/headless — Remotion recommande explicitement 'angle'. Sans ca, le
-    // contexte WebGL peut planter ("Context Lost") au milieu du rendu.
-    const chromiumOptions = { gl: 'angle' };
+    // Three.js (Ti-Guy en 3D) a besoin d'un renderer OpenGL explicite en rendu serveur/headless.
+    // 'angle' a besoin d'un vrai GPU/driver derriere lui — sur un conteneur sans GPU (Railway,
+    // comme Lambda), ca echoue avec "GL_VENDOR/RENDERER = Disabled". Remotion recommande 'swangle'
+    // (SwiftShader) dans ce cas: un rendu 100% logiciel qui ne depend d'aucun materiel graphique.
+    const chromiumOptions = { gl: 'swangle' };
 
     const composition = await selectComposition({
         serveUrl: location,
