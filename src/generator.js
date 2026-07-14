@@ -234,4 +234,4 @@ function getSaison() {
     return 'automne';
 }
 
-module.exports = { generateConseilScript, generateRevueProduit, generateScriptCustom };
+module.exports = { generateConseilScript, generateRevueProduit, generateScriptCustom, getSaison };

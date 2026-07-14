@@ -72,6 +72,7 @@
   .type-conseil { background: #e8f5ee; color: #1a7a4a; }
   .type-revue { background: #fef3e8; color: #e8630a; }
   .type-custom { background: #f0e8f8; color: #6b35a8; }
+  .type-manuel { background: #eaf2fb; color: #2471a3; }
   .statut-badge { font-size: 11px; padding: 3px 8px; border-radius: 12px; }
   .statut-en_attente { background: #fef9e7; color: #f39c12; }
   .statut-approuve { background: #eafaf1; color: #27ae60; }
@@ -121,7 +122,7 @@
       <span>🏕️</span>
       <div>
         <div>Ti-Guy Bot v2.0</div>
-        <div style="font-size:11px;opacity:0.7">Kling + ElevenLabs + Claude</div>
+        <div style="font-size:11px;opacity:0.7">Remotion 3D + ElevenLabs + Claude</div>
       </div>
     </div>
     <div id="server-status" class="status-badge">Chargement...</div>
@@ -141,7 +142,7 @@
         <div class="icon" id="saison-icon">🌿</div>
         <div>
           <h3>Saison: <span id="saison-nom">...</span></h3>
-          <p>Mardi & Jeudi 8h — Kling AI + ElevenLabs + Claude actifs</p>
+          <p>Mardi & Jeudi 8h — Rendu 3D Remotion + ElevenLabs + Claude actifs</p>
         </div>
       </div>
       <div class="stats-grid">
@@ -156,7 +157,7 @@
           <button class="btn btn-primary" onclick="genererConseil('dashboard')">🎯 Conseil du mardi</button>
           <button class="btn btn-secondary" onclick="genererRevue('dashboard')">⭐ Revue du jeudi</button>
         </div>
-        <div id="loading-dashboard" class="loading"><span class="spinner"></span>Ti-Guy réfléchit... (ElevenLabs + Kling en cours)</div>
+        <div id="loading-dashboard" class="loading"><span class="spinner"></span>Ti-Guy réfléchit... (ElevenLabs + rendu 3D en cours)</div>
         <div id="alert-dashboard"></div>
       </div>
     </div>
@@ -186,6 +187,34 @@
         <button class="btn btn-custom" onclick="genererCustom()">Générer script custom</button>
         <div id="loading-custom" class="loading"><span class="spinner"></span>Ti-Guy improvise...</div>
         <div id="alert-custom"></div>
+      </div>
+      <div class="generate-section">
+        <h2>✍️ Script manuel</h2>
+        <p style="font-size:12px;color:#888;margin-bottom:12px;">Écris toi-même le texte exact que Ti-Guy va dire et choisis l'animation de chaque acte + le décor 3D — aucun passage par Claude, direct au rendu.</p>
+        <input type="text" id="manuel-titre" placeholder="Titre de la vidéo" style="width:100%;padding:10px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px;">
+        <textarea class="custom-textarea" id="manuel-script" placeholder="Le texte exact que Ti-Guy va dire..."></textarea>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">Animation acte 1 (obstacle)</label>
+            <select id="manuel-anim-0" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;"></select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">Animation acte 2 (astuce)</label>
+            <select id="manuel-anim-1" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;"></select>
+          </div>
+          <div>
+            <label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">Animation acte 3 (victoire)</label>
+            <select id="manuel-anim-2" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;"></select>
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:12px;color:#888;display:block;margin-bottom:4px;">Décor 3D (toute la vidéo)</label>
+          <select id="manuel-environment" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;"></select>
+        </div>
+        <input type="text" id="manuel-hashtags" placeholder="Hashtags séparés par virgule (optionnel)" style="width:100%;padding:10px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;outline:none;margin-bottom:12px;">
+        <button class="btn" style="background:#2471a3;color:white;" onclick="genererManuel()">Générer avec ce script</button>
+        <div id="loading-manuel" class="loading"><span class="spinner"></span>Ti-Guy tourne la scène...</div>
+        <div id="alert-manuel"></div>
       </div>
     </div>
 
@@ -224,6 +253,7 @@ function login() {
             document.getElementById('app').style.display = 'block';
             loadStatus();
             loadScripts();
+            loadOptions();
             // Refresh stats seulement (pas les scripts) toutes les 30 secondes
             setInterval(loadStatus, 30000);
         } else {
@@ -287,15 +317,15 @@ function renderScripts(containerId, scripts) {
         return;
     }
     container.innerHTML = scripts.map(s => {
-        const pipelineInfo = s.statut === 'audio_pret' ? '<div class="pipeline-status">🎤 Audio prêt — Vidéo Kling en cours...</div>' :
-                           s.statut === 'video_en_cours' ? '<div class="pipeline-status">🎬 Vidéo Kling en cours de génération...</div>' :
+        const pipelineInfo = s.statut === 'audio_pret' ? '<div class="pipeline-status">🎤 Audio prêt — Rendu 3D en cours...</div>' :
+                           s.statut === 'video_en_cours' ? '<div class="pipeline-status">🎬 Rendu 3D en cours (Remotion)...</div>' :
                            s.statut === 'erreur_pipeline' ? `<div class="pipeline-status" style="color:#e74c3c">❌ Erreur pipeline: ${s.erreur || 'inconnue'}</div>` : '';
         return `
         <div class="script-card ${s.statut}" id="card-${s.id}">
             <div class="card-header">
                 <div class="card-title">${s.titre || 'Sans titre'}</div>
                 <div class="card-meta">
-                    <span class="type-badge type-${s.type||'custom'}">${s.type==='conseil'?'🎯 Conseil':s.type==='revue'?'⭐ Revue':'✨ Custom'}</span>
+                    <span class="type-badge type-${s.type||'custom'}">${s.type==='conseil'?'🎯 Conseil':s.type==='revue'?'⭐ Revue':s.type==='manuel'?'✍️ Manuel':'✨ Custom'}</span>
                     <span class="statut-badge statut-${s.statut}">${formatStatut(s.statut)}</span>
                 </div>
             </div>
@@ -388,6 +418,45 @@ async function genererCustom() {
     } catch(e) {
         showLoading('custom', false);
         showAlert('custom', '❌ Erreur: ' + e.message, 'error');
+    }
+}
+
+let OPTIONS = { animations: {}, environments: {} };
+
+function loadOptions() {
+    api('/api/options').then(data => {
+        OPTIONS = data;
+        ['manuel-anim-0', 'manuel-anim-1', 'manuel-anim-2'].forEach(id => {
+            const sel = document.getElementById(id);
+            sel.innerHTML = '<option value="">— au hasard —</option>' +
+                Object.entries(OPTIONS.animations).map(([cle, fichier]) => `<option value="${fichier}">${cle}</option>`).join('');
+        });
+        const envSel = document.getElementById('manuel-environment');
+        envSel.innerHTML = '<option value="">Aucun (fond 2D classique)</option>' +
+            Object.entries(OPTIONS.environments).map(([cle, fichier]) => `<option value="${fichier}">${cle}</option>`).join('');
+    }).catch(() => {});
+}
+
+async function genererManuel() {
+    const titre = document.getElementById('manuel-titre').value.trim();
+    const texte = document.getElementById('manuel-script').value.trim();
+    if (!texte) return alert('Écris le texte que Ti-Guy va dire !');
+    const animations = ['manuel-anim-0', 'manuel-anim-1', 'manuel-anim-2'].map(id => document.getElementById(id).value);
+    const environment = document.getElementById('manuel-environment').value;
+    const hashtags = document.getElementById('manuel-hashtags').value.trim();
+    showLoading('manuel', true);
+    try {
+        const script = await api('/api/generate/manuel', 'POST', { titre, script: texte, animations, environment, hashtags });
+        showLoading('manuel', false);
+        showAlert('manuel', `✅ Script généré: "${script.titre}" — Audio + Rendu 3D en cours...`);
+        document.getElementById('manuel-titre').value = '';
+        document.getElementById('manuel-script').value = '';
+        document.getElementById('manuel-hashtags').value = '';
+        loadStatus();
+        loadScripts();
+    } catch(e) {
+        showLoading('manuel', false);
+        showAlert('manuel', '❌ Erreur: ' + e.message, 'error');
     }
 }
 

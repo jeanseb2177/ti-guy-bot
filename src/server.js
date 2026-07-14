@@ -1,12 +1,13 @@
 const express = require('express');
 const path = require('path');
-const { generateConseilScript, generateRevueProduit, generateScriptCustom } = require('./generator');
+const { generateConseilScript, generateRevueProduit, generateScriptCustom, getSaison } = require('./generator');
 const { generateAudio, getVoices } = require('./elevenlabs');
 const { renderTiGuyVideo } = require('./remotionRender');
 const { getOutroAvatarUrl } = require('./avatars');
 const { uploadVideo, uploadAudio } = require('./cloudinary');
 const { saveScript, getAllScripts, updateScript, deleteScript, getScript } = require('./store');
 const { getConnectUrl, listIntegrations, publishVideo } = require('./postpeer');
+const { ANIMATIONS, ENVIRONMENTS } = require('./animations');
 
 const app = express();
 app.use(express.json());
@@ -84,16 +85,21 @@ async function genererAvecPipeline(script) {
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
         const sousTitres = diviserScript(script.script);
-        // Un seul decor 3D par video (coherence visuelle entre les 3 actes), detecte sur
-        // l'ensemble du script comme le fond 2D. Si rien ne correspond, la scene retombe sur
-        // le fond 2D classique avec effet Ken Burns (voir Video.js).
-        const environnement3D = detecterEnvironnement(script.script);
+        // Un seul decor 3D par video (coherence visuelle entre les 3 actes). Pour un script
+        // manuel, l'utilisateur choisit le decor directement (environnementManuel) plutot que
+        // de le deviner par mots-cles; sinon detecte sur l'ensemble du script comme le fond 2D.
+        // Si rien ne correspond/n'est choisi, la scene retombe sur le fond 2D classique (Video.js).
+        const environnement3D = script.environnementManuel !== undefined
+            ? (script.environnementManuel || undefined)
+            : detecterEnvironnement(script.script);
 
         // Anime chaque acte selon sa description visuelle reelle (generee par Claude avec le
-        // script) plutot qu'un mapping fixe identique a chaque video.
+        // script), ou selon le choix explicite de l'utilisateur pour un script manuel
+        // (animationsManuelles), plutot qu'un mapping fixe identique a chaque video.
         const scenes = sousTitres.map((texte, i) => ({
             background: fondUrl,
-            animation: detecterAnimation(script.scenes && script.scenes[i], i),
+            animation: (script.animationsManuelles && script.animationsManuelles[i])
+                || detecterAnimation(script.scenes && script.scenes[i], i),
             caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim(),
             environment: environnement3D
         }));
@@ -161,6 +167,45 @@ app.post('/api/generate/custom', auth, async (req, res) => {
         const { instructions } = req.body;
         if (!instructions) return res.status(400).json({ error: 'Instructions requises' });
         const script = await generateScriptCustom(instructions);
+        saveScript(script);
+        genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
+        res.json(getScript(script.id));
+    } catch (error) {
+        console.error('[API] Erreur:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Liste les animations/decors 3D disponibles, pour remplir les menus du dashboard
+// (script manuel) sans dupliquer la banque definie dans animations.js.
+app.get('/api/options', auth, (req, res) => {
+    res.json({ animations: ANIMATIONS, environments: ENVIRONMENTS });
+});
+
+// Script ecrit entierement a la main (titre + texte + choix d'animation/decor explicites):
+// saute Claude, va direct au rendu. Utile pour tester une combinaison precise ou ecrire
+// un script sur mesure sans repasser par la generation IA.
+app.post('/api/generate/manuel', auth, async (req, res) => {
+    try {
+        const { titre, script: texte, hashtags, environment, animations } = req.body;
+        if (!texte || !texte.trim()) return res.status(400).json({ error: 'Le texte du script est requis' });
+
+        const script = {
+            id: Date.now().toString(),
+            type: 'manuel',
+            sujet: (titre || texte).substring(0, 50),
+            titre: titre || 'Ti-Guy — Mon Camp de Base',
+            script: texte.trim(),
+            scenes: [],
+            animationsManuelles: Array.isArray(animations) ? animations.filter(Boolean) : [],
+            environnementManuel: environment || '',
+            hashtags: hashtags || 'camping randonnee plein air outdoor france',
+            saison: getSaison(),
+            date_creation: new Date().toISOString(),
+            statut: 'en_attente',
+            video_url: null,
+            heygen_job_id: null
+        };
         saveScript(script);
         genererAvecPipeline(script).catch(e => console.error('[API] Erreur pipeline:', e.message));
         res.json(getScript(script.id));
