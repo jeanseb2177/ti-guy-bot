@@ -79,18 +79,23 @@ async function genererAvecPipeline(script) {
         updateScript(script.id, { statut: 'video_en_cours' });
 
         const { diviserScript, detectFond, FONDS_OUTDOOR } = require('./fonds');
-        const { detecterAnimation } = require('./animations');
+        const { detecterAnimation, detecterEnvironnement } = require('./animations');
         const outroAvatar = await getOutroAvatarUrl();
         const fondNom = detectFond(script.script);
         const fondUrl = FONDS_OUTDOOR[fondNom];
         const sousTitres = diviserScript(script.script);
+        // Un seul decor 3D par video (coherence visuelle entre les 3 actes), detecte sur
+        // l'ensemble du script comme le fond 2D. Si rien ne correspond, la scene retombe sur
+        // le fond 2D classique avec effet Ken Burns (voir Video.js).
+        const environnement3D = detecterEnvironnement(script.script);
 
         // Anime chaque acte selon sa description visuelle reelle (generee par Claude avec le
         // script) plutot qu'un mapping fixe identique a chaque video.
         const scenes = sousTitres.map((texte, i) => ({
             background: fondUrl,
             animation: detecterAnimation(script.scenes && script.scenes[i], i),
-            caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim()
+            caption: texte.replace(/\*/g, '').replace(/[()]/g, '').trim(),
+            environment: environnement3D
         }));
 
         // Etape 3: Rendu Remotion (compose decor + avatar + sous-titres + audio -> mp4 directement)

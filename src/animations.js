@@ -13,6 +13,7 @@ const ANIMATIONS = {
     genoux: 'Kneeling_Down.fbx',
     porte: 'Carrying.fbx',
     ramasse: 'Taking_Item.fbx',
+    pointe: 'Pointing_Forward.fbx', // animation sur mesure creee via Blender MCP
 
     // Acte 3 (victoire): Ti-Guy savoure le resultat
     danse: 'Silly_Dancing.fbx',
@@ -22,8 +23,25 @@ const ANIMATIONS = {
 };
 
 const OBSTACLE = [ANIMATIONS.chute, ANIMATIONS.fatigue, ANIMATIONS.perdu, ANIMATIONS.releve, ANIMATIONS.descenteDifficile];
-const ACTION = [ANIMATIONS.marche, ANIMATIONS.marcheAlt, ANIMATIONS.genoux, ANIMATIONS.porte, ANIMATIONS.ramasse];
+const ACTION = [ANIMATIONS.marche, ANIMATIONS.marcheAlt, ANIMATIONS.genoux, ANIMATIONS.porte, ANIMATIONS.ramasse, ANIMATIONS.pointe];
 const VICTOIRE = [ANIMATIONS.danse, ANIMATIONS.assis, ANIMATIONS.debout, ANIMATIONS.salut];
+
+// Banque de decors 3D (foret, montagne...) disponibles dans src/remotion/public/environments/.
+// Optionnels: si aucun ne correspond, la scene retombe sur le fond 2D classique (voir Video.js).
+const ENVIRONMENTS = {
+    foret: 'Foret_Sentier.fbx',
+    montagne: 'Montagne_Sentier.fbx'
+};
+
+// Detecte un decor 3D a partir de la description de scene, independamment de l'animation.
+// Retourne undefined si rien ne correspond clairement (pas de decor 3D force par defaut,
+// pour ne pas plaquer une foret sur une scene qui se passe ailleurs).
+function detecterEnvironnement(descriptionScene) {
+    const s = (descriptionScene || '').toLowerCase();
+    if (/\b(mountain|alpine|summit|peak|ridge|cliff)\b/.test(s)) return ENVIRONMENTS.montagne;
+    if (/\b(forest|woods|trail|trees?|hiking path|campsite|camp site)\b/.test(s)) return ENVIRONMENTS.foret;
+    return undefined;
+}
 
 function auHasard(liste) {
     return liste[Math.floor(Math.random() * liste.length)];
@@ -46,6 +64,7 @@ function detecterAnimation(descriptionScene, indexActe) {
     if (indexActe === 1) {
         if (/\b(kneel(s|ing)?|stak(e|es|ing))\b/.test(s)) return ANIMATIONS.genoux;
         if (/\b(carry|carrying|haul|load(ing)?)\b/.test(s)) return ANIMATIONS.porte;
+        if (/\b(point(s|ing)?( at| to)?|shows?|indicat(es|ing))\b/.test(s)) return ANIMATIONS.pointe;
         if (/\b(pick(s|ing)? up|grab(s|bing)?|take?s|retriev|reach(es|ing)? for)\b/.test(s)) return ANIMATIONS.ramasse;
         if (/\b(walk|walking|hik(e|ing)|step(s|ping)?|move[sd]?)\b/.test(s)) return Math.random() < 0.5 ? ANIMATIONS.marche : ANIMATIONS.marcheAlt;
         return auHasard(ACTION);
@@ -59,4 +78,4 @@ function detecterAnimation(descriptionScene, indexActe) {
     return auHasard(VICTOIRE);
 }
 
-module.exports = { ANIMATIONS, detecterAnimation };
+module.exports = { ANIMATIONS, detecterAnimation, ENVIRONMENTS, detecterEnvironnement };

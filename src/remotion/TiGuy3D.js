@@ -21,12 +21,15 @@ const ANIMATIONS_UNE_FOIS = new Set([
     'Kneeling_Down.fbx',
     'Carrying.fbx',
     'Taking_Item.fbx',
-    'Waving_Hello.fbx'
+    'Waving_Hello.fbx',
+    'Pointing_Forward.fbx'
 ]);
 
 const CAMERA_FOV = 32;
 const MARGE_LARGEUR = 1.3; // marge horizontale pour ne pas coller les bords
 const SOL_Y = -1.05; // niveau du sol (position de base du personnage, pieds au repos)
+const ECHELLE_ENV = 0.011; // meme facteur que le personnage: les environnements sont modelises dans Blender avec les memes proportions (1m Blender = ~1.1 unite monde)
+const DISTANCE_MARCHE = 16; // unites monde parcourues par le decor sur la duree de la scene, pour simuler une marche en avant
 
 function chargerFBX(url) {
     if (cacheFBX[url]) return cacheFBX[url];
@@ -34,6 +37,49 @@ function chargerFBX(url) {
         new FBXLoader().load(url, resolve, undefined, reject);
     });
     return cacheFBX[url];
+}
+
+// Decor 3D (foret, montagne...) charge en arriere-plan dans la meme scene Three.js que
+// Ti-Guy, pour un vrai effet de parallaxe plutot qu'une image 2D plate derriere lui.
+function Environnement3D({ environmentFile, avanceZ }) {
+    const [scene, setScene] = useState(null);
+    const decalageYRef = useRef(0);
+    const [handle] = useState(() => delayRender('Chargement decor 3D'));
+
+    useEffect(() => {
+        let annule = false;
+        chargerFBX(staticFile(`environments/${environmentFile}`)).then((fbx) => {
+            if (annule) return;
+            fbx.scale.set(ECHELLE_ENV, ECHELLE_ENV, ECHELLE_ENV);
+            // Le decor est modelise "vers l'avant" en Blender (Y negatif = plus loin), ce qui
+            // ressort inverse apres conversion FBX: on tourne 180 pour que l'eloignement du
+            // decor corresponde a la direction ou regarde la camera (-Z).
+            fbx.rotation.y = Math.PI;
+            fbx.updateMatrixWorld(true);
+
+            // Recale le sol du decor exactement sur SOL_Y (le niveau des pieds de Ti-Guy):
+            // l'export Blender->FBX ne garantit pas une correspondance pixel-perfect a cause
+            // de la conversion d'unites (m Blender -> cm FBX -> echelle monde). Stocke le
+            // decalage dans une ref plutot que de le fixer directement sur l'objet, car la
+            // position est reappliquee chaque frame pour l'avance de la camera (voir plus bas).
+            const sol = fbx.children.find((c) => c.name.startsWith('Env_Sol'));
+            if (sol) {
+                const boiteSol = new THREE.Box3().setFromObject(sol);
+                const solActuel = (boiteSol.min.y + boiteSol.max.y) / 2;
+                decalageYRef.current = SOL_Y - solActuel;
+            }
+
+            setScene(fbx);
+            continueRender(handle);
+        }).catch((err) => {
+            console.error('[TIGUY3D] Erreur chargement decor:', err);
+            continueRender(handle);
+        });
+        return () => { annule = true; };
+    }, [environmentFile]);
+
+    if (!scene) return null;
+    return React.createElement('primitive', { object: scene, position: [0, decalageYRef.current, avanceZ] });
 }
 
 function TiGuy3D({ animationFile, durationInFrames }) {
@@ -53,6 +99,17 @@ function TiGuy3D({ animationFile, durationInFrames }) {
             if (annule) return;
             fbx.scale.set(0.011, 0.011, 0.011);
             fbx.position.set(0, -1.05, 0);
+
+            // Certains exports Blender marquent le materiau du personnage "transparent" (avec
+            // opacity 1) meme s'il est en realite opaque. Sans decor 3D ca ne se voyait pas,
+            // mais avec un decor (arbres, montagne), le tri de profondeur des objets transparents
+            // se fait mal et Ti-Guy apparait en semi-transparence, fondu avec le decor derriere lui.
+            fbx.traverse((obj) => {
+                if (obj.isMesh && obj.material) {
+                    const materiaux = Array.isArray(obj.material) ? obj.material : [obj.material];
+                    materiaux.forEach((m) => { m.transparent = false; });
+                }
+            });
 
             const mixer = new THREE.AnimationMixer(fbx);
             if (fbx.animations && fbx.animations.length > 0) {
@@ -133,17 +190,30 @@ function TiGuy3D({ animationFile, durationInFrames }) {
     return React.createElement('primitive', { object: scene });
 }
 
-function SceneTiGuy3D({ animationFile, durationInFrames }) {
+function SceneTiGuy3D({ animationFile, durationInFrames, environmentFile }) {
+    const frame = useCurrentFrame();
+    const { fps } = useVideoConfig();
+    const sceneDureeSec = durationInFrames / fps;
+    const progression = sceneDureeSec > 0 ? Math.min(1, frame / fps / sceneDureeSec) : 0;
+    const avanceZ = environmentFile ? progression * DISTANCE_MARCHE : 0;
+
+    const enfants = [
+        React.createElement('ambientLight', { key: 'amb', intensity: 0.8 }),
+        React.createElement('directionalLight', { key: 'dir1', position: [2, 4, 3], intensity: 1.1 }),
+        React.createElement('directionalLight', { key: 'dir2', position: [-2, 2, -3], intensity: 0.4 })
+    ];
+    if (environmentFile) {
+        enfants.push(React.createElement(Environnement3D, { key: 'env', environmentFile, avanceZ }));
+    }
+    enfants.push(React.createElement(TiGuy3D, { key: 'perso', animationFile, durationInFrames }));
+
     return React.createElement(ThreeCanvas, {
             width: 1080,
             height: 1920,
             style: { position: 'absolute', top: 0, left: 0 },
             camera: { fov: CAMERA_FOV }
         },
-        React.createElement('ambientLight', { intensity: 0.8 }),
-        React.createElement('directionalLight', { position: [2, 4, 3], intensity: 1.1 }),
-        React.createElement('directionalLight', { position: [-2, 2, -3], intensity: 0.4 }),
-        React.createElement(TiGuy3D, { animationFile, durationInFrames })
+        ...enfants
     );
 }
 

@@ -19,7 +19,7 @@ function decouperEnLignes(texte, motsParLigne = 5) {
 }
 
 // Une "scene" = un acte du mini-film (obstacle / astuce / victoire)
-function Scene({ background, animation, caption, durationInFrames }) {
+function Scene({ background, animation, caption, durationInFrames, environment }) {
     const frame = useCurrentFrame();
 
     // Effet Ken Burns: zoom + leger pan sur le decor pendant toute la duree de la scene
@@ -41,12 +41,14 @@ function Scene({ background, animation, caption, durationInFrames }) {
     );
 
     return React.createElement(AbsoluteFill, { style: { backgroundColor: '#1B3328', filter: 'saturate(1.12) contrast(1.06)' } },
-        // Decor avec effet Ken Burns
-        React.createElement(AbsoluteFill, { style: { transform: `scale(${scale}) translateX(${translateX}px)` } },
+        // Decor: soit un fond 2D avec effet Ken Burns (comme avant), soit un vrai decor 3D
+        // (foret, montagne...) rendu dans la meme scene Three.js que Ti-Guy pour un effet
+        // de parallaxe pendant que la camera avance, au lieu d'une image plate figee.
+        !environment && React.createElement(AbsoluteFill, { style: { transform: `scale(${scale}) translateX(${translateX}px)` } },
             React.createElement(Img, { src: background, style: { width: '100%', height: '100%', objectFit: 'cover' } })
         ),
-        // Ti-Guy en 3D, vraiment anime (marche, tombe, danse, rit selon l'acte)
-        React.createElement(SceneTiGuy3D, { animationFile: animation, durationInFrames }),
+        // Ti-Guy en 3D, vraiment anime (marche, tombe, danse, rit selon l'acte), avec le decor 3D si fourni
+        React.createElement(SceneTiGuy3D, { animationFile: animation, durationInFrames, environmentFile: environment }),
         // Vignette + leger etalonnage: assombrit les bords et sature un peu l'image
         // pour un rendu plus "film d'animation" que "capture plate".
         React.createElement(AbsoluteFill, {
@@ -135,7 +137,8 @@ function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFra
                     background: scene.background,
                     animation: scene.animation,
                     caption: scene.caption,
-                    durationInFrames: actDurationsInFrames[i]
+                    durationInFrames: actDurationsInFrames[i],
+                    environment: scene.environment
                 })
             )
         );
