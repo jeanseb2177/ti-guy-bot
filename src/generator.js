@@ -1,4 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const { getProduitAleatoire, trouverProduit } = require('./shopify');
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -83,8 +84,22 @@ Format de réponse (respecte exactement ces sections):
 }
 
 async function generateRevueProduit(nomProduit = null) {
-    const produit = nomProduit || await getRandomTopic('produit');
-    
+    // Va chercher un vrai produit du catalogue Shopify plutot que d'improviser un nom
+    // generique: soit celui demande (recherche approximative dans le catalogue), soit
+    // un produit au hasard parmi ceux reellement en vente.
+    const produitCatalogue = nomProduit ? await trouverProduit(nomProduit) : await getProduitAleatoire();
+
+    // Filet de securite si Shopify n'est pas configure ou que rien n'est trouve: on retombe
+    // sur l'ancien comportement (nom generique) plutot que de faire planter la generation,
+    // mais c'est signale bien fort dans les logs car ce n'est plus le chemin normal.
+    if (!produitCatalogue) {
+        console.error('[GENERATOR] Aucun produit Shopify trouve — verifie SHOPIFY_STORE_DOMAIN/SHOPIFY_STOREFRONT_TOKEN. Repli sur un nom generique.');
+    }
+    const produit = produitCatalogue ? produitCatalogue.titre : (nomProduit || await getRandomTopic('produit'));
+    const ficheProduit = produitCatalogue
+        ? `Nom exact: ${produitCatalogue.titre}\nDescription reelle: ${produitCatalogue.description || '(pas de description fournie par la boutique)'}\nPrix: ${produitCatalogue.prix ? produitCatalogue.prix + ' ' + produitCatalogue.devise : 'non precise'}\nCategorie: ${produitCatalogue.categorie || 'non precisee'}`
+        : `Nom: ${produit} (produit generique, pas de fiche boutique disponible)`;
+
     const response = await client.messages.create({
         model: 'claude-sonnet-5',
         max_tokens: 2000,
@@ -93,13 +108,15 @@ async function generateRevueProduit(nomProduit = null) {
             role: 'user',
             content: `Génère un MINI-FILM DE 30 SECONDES pour une REVUE PRODUIT Ti-Guy, pas juste une revue racontée à la caméra.
 
-Produit: ${produit}
+FICHE PRODUIT REELLE (vendu sur moncampdebase.com — n'invente AUCUNE caracteristique, fonction ou materiau qui n'est pas dans cette fiche; si un detail manque, reste vague plutot que d'inventer):
+${ficheProduit}
+
 Saison: ${getSaison()}
 Durée cible: 35-40 secondes (environ 90-100 mots parlés)
 
 STRUCTURE OBLIGATOIRE EN 3 ACTES :
 - ACTE 1 (situation): Ti-Guy est en pleine aventure outdoor et rencontre une situation ou le produit va etre teste (ex: pluie soudaine et le poncho). Visuel et physique.
-- ACTE 2 (le produit en action): Ti-Guy utilise PHYSIQUEMENT le produit — on le VOIT s'en servir en conditions reelles, pas juste l'entendre en parler.
+- ACTE 2 (le produit en action): Ti-Guy utilise PHYSIQUEMENT le produit — on le VOIT s'en servir en conditions reelles, pas juste l'entendre en parler. Reste fidele a ce que le produit fait reellement d'apres la fiche.
 - ACTE 3 (verdict): Ti-Guy donne son verdict honnête et tranchant (avec metaphore outdoor unique), satisfait ou nuance, et fait le lien vers moncampdebase.com.
 
 Le texte parle (SCRIPT) doit accompagner ces 3 actes naturellement.
@@ -125,10 +142,10 @@ Format de réponse (respecte exactement ces sections):
 [10 hashtags FR pertinents sans #]`
         }]
     });
-    
+
     const textBlock = response.content.find(b => b.type === 'text');
     if (!textBlock) throw new Error('Reponse Claude sans bloc texte: ' + JSON.stringify(response.content));
-    return parseScript(textBlock.text, 'revue', produit);
+    return parseScript(textBlock.text, 'revue', produit, produitCatalogue ? produitCatalogue.url : null);
 }
 
 async function generateScriptCustom(instructions) {
@@ -170,7 +187,7 @@ Format de réponse (respecte exactement ces sections):
     return parseScript(textBlock.text, 'custom', instructions.substring(0, 50));
 }
 
-function parseScript(text, type, sujet) {
+function parseScript(text, type, sujet, produitUrl = null) {
     const titre = extractSection(text, 'TITRE');
     const script = extractSection(text, 'SCRIPT');
     const hashtags = extractSection(text, 'HASHTAGS');
@@ -186,6 +203,7 @@ function parseScript(text, type, sujet) {
         script: script || text,
         scenes: [scene1, scene2, scene3].filter(s => s && s.length > 0),
         hashtags: hashtags || 'camping randonnee plein air outdoor france',
+        produit_url: produitUrl, // lien reel vers la fiche produit Shopify, si la revue en presente un
         saison: getSaison(),
         date_creation: new Date().toISOString(),
         statut: 'en_attente',
