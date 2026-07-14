@@ -8,6 +8,20 @@ const { FBXLoader } = require('three/examples/jsm/loaders/FBXLoader.js');
 // Cache des FBX charges pour ne pas re-parser 26Mo a chaque frame
 const cacheFBX = {};
 
+// Animations qui representent un geste ponctuel (pas un mouvement cyclique comme marcher/danser):
+// jouees en boucle, elles donnent l'impression que le personnage "bug" en repetant l'action.
+// On les joue une seule fois puis on fige la derniere pose pour le reste de la scene.
+const ANIMATIONS_UNE_FOIS = new Set([
+    'Fall_Flat.fbx',
+    'Wiping_Sweat.fbx',
+    'Look_Around.fbx',
+    'Standing_Up.fbx',
+    'Climbing_Down.fbx',
+    'Kneeling_Down.fbx',
+    'Carrying.fbx',
+    'Taking_Item.fbx'
+]);
+
 function chargerFBX(url) {
     if (cacheFBX[url]) return cacheFBX[url];
     cacheFBX[url] = new Promise((resolve, reject) => {
@@ -16,7 +30,7 @@ function chargerFBX(url) {
     return cacheFBX[url];
 }
 
-function TiGuy3D({ animationFile }) {
+function TiGuy3D({ animationFile, durationInFrames }) {
     const frame = useCurrentFrame();
     const { fps } = useVideoConfig();
     const [scene, setScene] = useState(null);
@@ -32,7 +46,22 @@ function TiGuy3D({ animationFile }) {
 
             const mixer = new THREE.AnimationMixer(fbx);
             if (fbx.animations && fbx.animations.length > 0) {
-                mixer.clipAction(fbx.animations[0]).play();
+                const clip = fbx.animations[0];
+                const action = mixer.clipAction(clip);
+                if (ANIMATIONS_UNE_FOIS.has(animationFile)) {
+                    // Ces clips Mixamo sont souvent un aller-retour complet (ex: debout -> accroupi ->
+                    // debout). En boucle rapide ca "bug" (le geste se repete plusieurs fois pendant la
+                    // scene) ; fige a la derniere frame retombe souvent juste sur "debout" (comme si le
+                    // geste n'avait jamais eu lieu). On ralentit plutot le clip pour qu'il dure exactement
+                    // la scene entiere: le geste se joue une seule fois, au ralenti, du debut a la fin.
+                    const sceneDurationSec = durationInFrames / fps;
+                    if (clip.duration > 0 && sceneDurationSec > 0) {
+                        action.setEffectiveTimeScale(clip.duration / sceneDurationSec);
+                    }
+                    action.setLoop(THREE.LoopOnce, 1);
+                    action.clampWhenFinished = true;
+                }
+                action.play();
             }
             mixerRef.current = mixer;
             setScene(fbx);
@@ -54,7 +83,7 @@ function TiGuy3D({ animationFile }) {
     return React.createElement('primitive', { object: scene });
 }
 
-function SceneTiGuy3D({ animationFile }) {
+function SceneTiGuy3D({ animationFile, durationInFrames }) {
     return React.createElement(ThreeCanvas, {
             width: 1080,
             height: 1920,
@@ -63,7 +92,7 @@ function SceneTiGuy3D({ animationFile }) {
         React.createElement('ambientLight', { intensity: 0.8 }),
         React.createElement('directionalLight', { position: [2, 4, 3], intensity: 1.1 }),
         React.createElement('directionalLight', { position: [-2, 2, -3], intensity: 0.4 }),
-        React.createElement(TiGuy3D, { animationFile })
+        React.createElement(TiGuy3D, { animationFile, durationInFrames })
     );
 }
 
