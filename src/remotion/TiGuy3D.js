@@ -87,7 +87,10 @@ function SceneTiGuy3D({ animationFile, durationInFrames }) {
     return React.createElement(ThreeCanvas, {
             width: 1080,
             height: 1920,
-            style: { position: 'absolute', top: 0, left: 0 }
+            style: { position: 'absolute', top: 0, left: 0 },
+            // Cadrage plan rapproche (plutot que le plan large/lointain par defaut de R3F):
+            // objectif plus etroit (moins de distorsion) et camera plus proche.
+            camera: { position: [0, 0, 3.2], fov: 32 }
         },
         React.createElement('ambientLight', { intensity: 0.8 }),
         React.createElement('directionalLight', { position: [2, 4, 3], intensity: 1.1 }),

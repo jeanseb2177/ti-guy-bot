@@ -1,6 +1,9 @@
 const React = require('react');
-const { AbsoluteFill, Audio, Img, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig } = require('remotion');
+const { AbsoluteFill, Audio, Img, interpolate, spring, useCurrentFrame, useVideoConfig } = require('remotion');
+const { TransitionSeries, linearTiming } = require('@remotion/transitions');
+const { fade } = require('@remotion/transitions/fade');
 const { SceneTiGuy3D } = require('./TiGuy3D');
+const { TRANSITION_FRAMES } = require('./timing');
 
 // Decoupe le texte de la scene en courtes lignes (comme des sous-titres qui defilent
 // au rythme de la narration, plutot qu'un seul gros bloc affiche en continu).
@@ -37,13 +40,21 @@ function Scene({ background, animation, caption, durationInFrames }) {
         { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }
     );
 
-    return React.createElement(AbsoluteFill, { style: { backgroundColor: '#1B3328' } },
+    return React.createElement(AbsoluteFill, { style: { backgroundColor: '#1B3328', filter: 'saturate(1.12) contrast(1.06)' } },
         // Decor avec effet Ken Burns
         React.createElement(AbsoluteFill, { style: { transform: `scale(${scale}) translateX(${translateX}px)` } },
             React.createElement(Img, { src: background, style: { width: '100%', height: '100%', objectFit: 'cover' } })
         ),
         // Ti-Guy en 3D, vraiment anime (marche, tombe, danse, rit selon l'acte)
         React.createElement(SceneTiGuy3D, { animationFile: animation, durationInFrames }),
+        // Vignette + leger etalonnage: assombrit les bords et sature un peu l'image
+        // pour un rendu plus "film d'animation" que "capture plate".
+        React.createElement(AbsoluteFill, {
+            style: {
+                pointerEvents: 'none',
+                background: 'radial-gradient(ellipse at 50% 42%, rgba(0,0,0,0) 42%, rgba(0,0,0,0.5) 100%)'
+            }
+        }),
         // Sous-titre: texte blanc simple, sans encart, qui suit la narration ligne par ligne
         React.createElement(AbsoluteFill, { style: { justifyContent: 'flex-end', alignItems: 'center', paddingBottom: 140 } },
             React.createElement('div', {
@@ -103,25 +114,37 @@ function Outro({ avatar }) {
     );
 }
 
+function transition(key) {
+    return React.createElement(TransitionSeries.Transition, {
+        key,
+        timing: linearTiming({ durationInFrames: TRANSITION_FRAMES }),
+        presentation: fade()
+    });
+}
+
+// Fondu enchaine entre chaque acte (et vers le carton de fin) plutot que des coupes
+// brutes, pour un rendu plus fluide/cinema.
 function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFrames, outroAvatar }) {
-    let startFrame = 0;
-    const sequences = scenes.map((scene, i) => {
-        const duree = actDurationsInFrames[i];
-        const el = React.createElement(Sequence, { key: i, from: startFrame, durationInFrames: duree },
-            React.createElement(Scene, {
-                background: scene.background,
-                animation: scene.animation,
-                caption: scene.caption,
-                durationInFrames: duree
-            })
+    const elements = [];
+
+    scenes.forEach((scene, i) => {
+        if (i > 0) elements.push(transition(`t${i}`));
+        elements.push(
+            React.createElement(TransitionSeries.Sequence, { key: i, durationInFrames: actDurationsInFrames[i] },
+                React.createElement(Scene, {
+                    background: scene.background,
+                    animation: scene.animation,
+                    caption: scene.caption,
+                    durationInFrames: actDurationsInFrames[i]
+                })
+            )
         );
-        startFrame += duree;
-        return el;
     });
 
     if (outroDurationInFrames > 0) {
-        sequences.push(
-            React.createElement(Sequence, { key: 'outro', from: startFrame, durationInFrames: outroDurationInFrames },
+        elements.push(transition('tOutro'));
+        elements.push(
+            React.createElement(TransitionSeries.Sequence, { key: 'outro', durationInFrames: outroDurationInFrames },
                 React.createElement(Outro, { avatar: outroAvatar })
             )
         );
@@ -129,7 +152,7 @@ function TiGuyVideo({ audioUrl, scenes, actDurationsInFrames, outroDurationInFra
 
     return React.createElement(AbsoluteFill, null,
         React.createElement(Audio, { src: audioUrl }),
-        ...sequences
+        React.createElement(TransitionSeries, null, ...elements)
     );
 }
 

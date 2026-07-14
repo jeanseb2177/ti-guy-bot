@@ -3,6 +3,7 @@ const fs = require('fs');
 const { bundle } = require('@remotion/bundler');
 const { renderMedia, selectComposition } = require('@remotion/renderer');
 const getMp3Duration = require('get-mp3-duration');
+const { TRANSITION_FRAMES } = require('./remotion/timing');
 
 const FPS = 30;
 const DUREE_MIN_PAR_ACTE_SEC = 8; // plancher pour eviter des scenes trop courtes
@@ -61,7 +62,11 @@ async function renderTiGuyVideo({ audioUrl, audioBuffer, scenes, outroAvatar, ou
     const { actDurationsInFrames, totalFrames: totalFramesActes } = calculerDureesActes(audioBuffer, scenes.length);
 
     const outroDurationInFrames = Math.round(DUREE_OUTRO_SEC * FPS);
-    const totalFrames = totalFramesActes + outroDurationInFrames;
+    // Avec des fondus enchaines (TransitionSeries), chaque transition fait se chevaucher
+    // les deux clips qu'elle relie: la duree totale est donc reduite d'autant de fois
+    // TRANSITION_FRAMES qu'il y a de transitions (une entre chaque acte + une vers l'outro).
+    const nbTransitions = scenes.length;
+    const totalFrames = totalFramesActes + outroDurationInFrames - nbTransitions * TRANSITION_FRAMES;
 
     const inputProps = { audioUrl, scenes, actDurationsInFrames, outroDurationInFrames, outroAvatar: outroAvatar || scenes[scenes.length - 1].avatar };
 
