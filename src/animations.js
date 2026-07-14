@@ -17,12 +17,13 @@ const ANIMATIONS = {
     // Acte 3 (victoire): Ti-Guy savoure le resultat
     danse: 'Silly_Dancing.fbx',
     assis: 'Sitting_Laughing.fbx',
-    debout: 'Standing.fbx'
+    debout: 'Standing.fbx',
+    salut: 'Waving_Hello.fbx' // animation sur mesure creee via Blender MCP (pose-a-pose, pas Mixamo)
 };
 
 const OBSTACLE = [ANIMATIONS.chute, ANIMATIONS.fatigue, ANIMATIONS.perdu, ANIMATIONS.releve, ANIMATIONS.descenteDifficile];
 const ACTION = [ANIMATIONS.marche, ANIMATIONS.marcheAlt, ANIMATIONS.genoux, ANIMATIONS.porte, ANIMATIONS.ramasse];
-const VICTOIRE = [ANIMATIONS.danse, ANIMATIONS.assis, ANIMATIONS.debout];
+const VICTOIRE = [ANIMATIONS.danse, ANIMATIONS.assis, ANIMATIONS.debout, ANIMATIONS.salut];
 
 function auHasard(liste) {
     return liste[Math.floor(Math.random() * liste.length)];
@@ -51,6 +52,7 @@ function detecterAnimation(descriptionScene, indexActe) {
     }
 
     // indexActe === 2 (victoire)
+    if (/\b(wav(e|es|ing)|greet(s|ing)?|hello|hi there)\b/.test(s)) return ANIMATIONS.salut;
     if (/\b(sit|sits|sitting|rest|resting|relax(ing)?)\b/.test(s)) return ANIMATIONS.assis;
     if (/\b(dance|dancing|jump|jumping|cheer|cheering|celebrat)\b/.test(s)) return ANIMATIONS.danse;
     if (/\b(stand(s|ing)? proudly|confident|satisfied|calm)\b/.test(s)) return ANIMATIONS.debout;

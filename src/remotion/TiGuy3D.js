@@ -20,7 +20,8 @@ const ANIMATIONS_UNE_FOIS = new Set([
     'Climbing_Down.fbx',
     'Kneeling_Down.fbx',
     'Carrying.fbx',
-    'Taking_Item.fbx'
+    'Taking_Item.fbx',
+    'Waving_Hello.fbx'
 ]);
 
 const CAMERA_FOV = 32;
